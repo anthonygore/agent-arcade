@@ -1,0 +1,58 @@
+[tool.poetry]
+name = "ai-arcade"
+version = "0.1.0"
+description = "Play terminal games while AI coding agents think"
+authors = ["Anthony Gore <anthony@vuejsdevelopers.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/anthonygore/ai-arcade"
+homepage = "https://github.com/anthonygore/ai-arcade"
+documentation = "https://github.com/anthonygore/ai-arcade#readme"
+keywords = ["ai", "games", "terminal", "productivity", "tmux", "textual"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: User Interfaces",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+textual = "^0.50.0"
+pyyaml = "^6.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+black = "^23.0.0"
+mypy = "^1.5.0"
+ruff = "^0.1.0"
+types-PyYAML = "^6.0"
+
+[tool.poetry.scripts]
+ai-arcade = "ai_arcade.cli:main"
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
