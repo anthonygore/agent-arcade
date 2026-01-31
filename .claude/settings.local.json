@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(tree:*)",
-      "Bash(poetry install:*)"
+      "Bash(poetry install:*)",
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(export PATH=\"/Users/anthonygore/.local/bin:$PATH\")",
+      "Bash(poetry --version:*)",
+      "Bash(poetry run python:*)",
+      "Bash(tmux -V:*)",
+      "Bash(brew install:*)",
+      "Bash(./scripts/setup.sh:*)"
     ]
   }
 }
