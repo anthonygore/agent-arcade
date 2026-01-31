@@ -100,6 +100,14 @@ class AIMonitor:
                 # active = agent doesn't show ready pattern (thinking/generating)
                 is_idle = status.is_ready
 
+                # If no pattern matched, check inactivity timeout as fallback
+                if not is_idle:
+                    time_since_change = time.time() - self._last_change_time
+                    if time_since_change >= self.inactivity_timeout:
+                        # No output changes for timeout period = agent is idle
+                        is_idle = True
+                        status.matched_pattern = "inactivity_timeout"
+
                 # Update timestamp when in idle state
                 if is_idle:
                     self._last_idle_time = time.time()
