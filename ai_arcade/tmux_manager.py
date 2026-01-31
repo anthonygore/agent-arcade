@@ -25,6 +25,13 @@ class TmuxManager:
         self.ai_window_index = 0
         self.game_window_index = 1
 
+        # Status tracking
+        # Agent state: idle (default) or active
+        # idle = user typing or agent waiting
+        # active = agent thinking or generating
+        self.agent_state_idle = True
+        self.current_game = None
+
         # Check tmux availability
         if not self._is_tmux_available():
             raise RuntimeError(
@@ -90,14 +97,11 @@ class TmuxManager:
         # Configure status bar
         if self.config.tmux.status_bar:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "status", "on"])
-            self._send_tmux_cmd([
-                "set-option", "-t", self.session_name, "status-left",
-                "🎮 AI ARCADE | "
-            ])
-            self._send_tmux_cmd([
-                "set-option", "-t", self.session_name, "status-right",
-                "#{window_index}:#{window_name} | Ctrl+Space to toggle"
-            ])
+            # Set status bar to fill width
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "status-left-length", "50"])
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "status-right-length", "50"])
+            # Initialize status bar
+            self.update_status_bar()
         else:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "status", "off"])
 
@@ -218,6 +222,79 @@ class TmuxManager:
 
         if result.returncode == 0:
             self.kill_session()
+
+    def set_agent_state(self, is_idle: bool) -> None:
+        """
+        Update agent state.
+
+        Args:
+            is_idle: True if idle (user typing or agent waiting)
+                    False if active (agent thinking or generating)
+        """
+        self.agent_state_idle = is_idle
+        self.update_status_bar()
+
+    def set_game_status(self, game_name: Optional[str]) -> None:
+        """
+        Update current game status.
+
+        Args:
+            game_name: Name of current game or None
+        """
+        self.current_game = game_name
+        self.update_status_bar()
+
+    def update_status_bar(self) -> None:
+        """Update the status bar with current state."""
+        if not self.config.tmux.status_bar:
+            return
+
+        # Two states: idle or active
+        if self.agent_state_idle:
+            # idle = user typing or agent waiting
+            status_color = "green"
+            agent_status = "idle"
+        else:
+            # active = agent thinking or generating
+            status_color = "yellow"
+            agent_status = "active"
+
+        # Game status
+        if self.current_game:
+            game_status = f"Playing {self.current_game}"
+        else:
+            game_status = "No game selected"
+
+        # Build status bar components
+        # Left: Agent status
+        status_left = f" {agent_status} "
+
+        # Right: Toggle instruction | Game status
+        status_right = f" Ctrl+Space to toggle | {game_status} "
+
+        # Set status bar with colored background
+        self._send_tmux_cmd([
+            "set-option", "-t", self.session_name, "status-style",
+            f"bg={status_color},fg=black,bold"
+        ])
+        self._send_tmux_cmd([
+            "set-option", "-t", self.session_name, "status-left",
+            status_left
+        ])
+        self._send_tmux_cmd([
+            "set-option", "-t", self.session_name, "status-right",
+            status_right
+        ])
+
+        # Hide window list in center
+        self._send_tmux_cmd([
+            "set-option", "-t", self.session_name, "window-status-current-format",
+            ""
+        ])
+        self._send_tmux_cmd([
+            "set-option", "-t", self.session_name, "window-status-format",
+            ""
+        ])
 
     def _send_tmux_cmd(self, args: List[str]) -> None:
         """

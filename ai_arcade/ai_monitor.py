@@ -1,5 +1,6 @@
 """AI agent output monitoring."""
 
+import re
 import threading
 import time
 from typing import Callable, Optional
@@ -10,6 +11,9 @@ from .tmux_manager import TmuxManager
 
 class AIMonitor:
     """Monitors AI agent output for readiness."""
+
+    # Regex to match ANSI escape sequences
+    ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
     def __init__(self, tmux_manager: TmuxManager, agent: BaseAgent, config):
         """
@@ -32,10 +36,28 @@ class AIMonitor:
         self._thread: Optional[threading.Thread] = None
         self._last_output = ""
         self._last_change_time = time.time()
-        self._is_ready = False
 
-        # Callback when readiness changes
-        self.on_ready_changed: Optional[Callable[[bool], None]] = None
+        # Agent state: idle or active
+        # idle = user is typing or agent is waiting (default state)
+        # active = agent is thinking or generating output
+        self._is_idle = True  # Default to idle state
+        self._last_idle_time = time.time()  # Track when agent last matched idle patterns
+
+        # Callback when state changes
+        self.on_state_changed: Optional[Callable[[bool], None]] = None
+
+    @classmethod
+    def _strip_ansi_codes(cls, text: str) -> str:
+        """
+        Remove ANSI escape sequences from text.
+
+        Args:
+            text: Text potentially containing ANSI codes
+
+        Returns:
+            Text with ANSI codes removed
+        """
+        return cls.ANSI_ESCAPE.sub('', text)
 
     def start(self) -> None:
         """Start monitoring in background thread."""
@@ -67,28 +89,44 @@ class AIMonitor:
                     self._last_output = output
                     self._last_change_time = time.time()
 
+                # Strip ANSI codes before pattern matching for more reliable detection
+                clean_output = self._strip_ansi_codes(output)
+
                 # Check agent-specific ready patterns
-                status = self.agent.check_ready(output)
+                status = self.agent.check_ready(clean_output)
 
-                # If no pattern matched, check inactivity
-                if not status.is_ready:
-                    time_since_change = time.time() - self._last_change_time
-                    if time_since_change >= self.inactivity_timeout:
-                        status.is_ready = True
-                        status.confidence = 0.7  # Lower confidence
-                        status.matched_pattern = "inactivity_timeout"
+                # Determine state: idle or active
+                # idle = agent shows ready pattern (user typing or agent waiting)
+                # active = agent doesn't show ready pattern (thinking/generating)
+                is_idle = status.is_ready
 
-                # Update ready state and notify if changed
-                if status.is_ready != self._is_ready:
-                    self._is_ready = status.is_ready
+                # Update timestamp when in idle state
+                if is_idle:
+                    self._last_idle_time = time.time()
+                else:
+                    # Grace period: if agent was recently idle (< 2s ago),
+                    # keep it as idle to prevent flickering when user types
+                    time_since_last_idle = time.time() - self._last_idle_time
+                    if time_since_last_idle < 2.0:
+                        is_idle = True
 
-                    # Send notification to game pane
-                    if self._is_ready and self.config.notifications.enabled:
+                # Update state and notify if changed
+                if is_idle != self._is_idle:
+                    self._is_idle = is_idle
+
+                    # Update status bar
+                    self.tmux.set_agent_state(self._is_idle)
+
+                    # Send notification to game pane when becoming idle
+                    if self._is_idle and self.config.notifications.enabled:
                         self._send_notification()
 
                     # Call callback if set
-                    if self.on_ready_changed:
-                        self.on_ready_changed(self._is_ready)
+                    if self.on_state_changed:
+                        self.on_state_changed(self._is_idle)
+
+                # Monitor game window for current game
+                self._monitor_game_status()
 
                 # Sleep until next check
                 time.sleep(self.check_interval)
@@ -97,6 +135,35 @@ class AIMonitor:
                 # Don't crash the monitor thread on errors
                 print(f"Monitor error: {e}")
                 time.sleep(self.check_interval)
+
+    def _monitor_game_status(self) -> None:
+        """Monitor game window to detect current game."""
+        try:
+            # Capture game window output
+            game_output = self.tmux.capture_window_output(
+                self.tmux.game_window_index,
+                lines=10
+            )
+
+            # Check for game indicators in output
+            # Look for common game patterns
+            current_game = None
+            if "Snake" in game_output or "snake" in game_output:
+                current_game = "Snake"
+            elif "Pong" in game_output or "pong" in game_output:
+                current_game = "Pong"
+            elif "Tetris" in game_output or "tetris" in game_output:
+                current_game = "Tetris"
+            elif "Game Selection" in game_output or "Select a game" in game_output:
+                current_game = None  # In selector
+
+            # Update status bar if game changed
+            if current_game != self.tmux.current_game:
+                self.tmux.set_game_status(current_game)
+
+        except Exception:
+            # Ignore errors in game monitoring
+            pass
 
     def _send_notification(self) -> None:
         """Send notification to game window that AI is ready."""
@@ -117,11 +184,12 @@ class AIMonitor:
             print(f"Warning: Could not send notification: {e}")
 
     @property
-    def is_ready(self) -> bool:
+    def is_idle(self) -> bool:
         """
-        Current readiness state.
+        Current agent state.
 
         Returns:
-            True if agent is ready
+            True if idle (user typing or agent waiting)
+            False if active (agent thinking or generating)
         """
-        return self._is_ready
+        return self._is_idle
