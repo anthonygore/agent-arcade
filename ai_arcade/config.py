@@ -68,6 +68,7 @@ class KeybindingsConfig:
     """Configuration for keybindings."""
 
     toggle_window: str = "C-Space"  # Ctrl+Space to toggle between AI and Games
+    exit_app: str = "C-q"  # Ctrl+q to exit application
 
 
 class Config:
@@ -209,7 +210,8 @@ class Config:
                 "animation_speed": "normal"
             },
             "keybindings": {
-                "toggle_window": "C-Space"
+                "toggle_window": "C-Space",
+                "exit_app": "C-q"
             }
         }
 
@@ -285,7 +287,12 @@ class Config:
             # Migrate from old format - just use C-Space
             toggle_key = "C-Space"
 
-        keybindings = KeybindingsConfig(toggle_window=toggle_key)
+        exit_key = kb_data.get("exit_app", "C-q")
+
+        keybindings = KeybindingsConfig(
+            toggle_window=toggle_key,
+            exit_app=exit_key
+        )
 
         return cls(
             agents=agents,

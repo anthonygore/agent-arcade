@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Pattern, Tuple
+from typing import Callable, List, Optional, Pattern, Tuple
 
 
 @dataclass
@@ -30,6 +30,10 @@ class BaseAgent(ABC):
         """
         self.config = config
         self.ready_patterns: List[Pattern] = self._compile_patterns()
+
+        # State change callback
+        # Called with is_idle parameter when state changes
+        self.on_state_change: Optional[Callable[[bool], None]] = None
 
     def _compile_patterns(self) -> List[Pattern]:
         """
@@ -94,3 +98,33 @@ class BaseAgent(ABC):
         if self.config.working_directory:
             return Path(self.config.working_directory).expanduser()
         return None
+
+    @abstractmethod
+    def start_detection(self) -> None:
+        """
+        Start detecting agent state (idle/active).
+
+        Agent should monitor its state and call on_state_change callback
+        when the state changes between idle and active.
+        """
+        pass
+
+    @abstractmethod
+    def stop_detection(self) -> None:
+        """
+        Stop detecting agent state.
+
+        Clean up any monitoring threads or resources.
+        """
+        pass
+
+    @abstractmethod
+    def get_current_state(self) -> bool:
+        """
+        Get current agent state.
+
+        Returns:
+            True if idle (waiting for user input)
+            False if active (thinking/generating/executing)
+        """
+        pass

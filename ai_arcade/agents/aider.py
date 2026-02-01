@@ -1,18 +1,12 @@
 """Aider agent implementation."""
 
-from typing import List, Tuple
-
-from .base import BaseAgent
+from .generic import GenericAgent
 
 
-class AiderAgent(BaseAgent):
-    """Aider specific configuration."""
+class AiderAgent(GenericAgent):
+    """
+    Aider agent with pattern-based detection.
 
-    def get_launch_command(self) -> Tuple[str, List[str]]:
-        """
-        Get command to launch Aider.
-
-        Returns:
-            (command, args) tuple
-        """
-        return (self.config.command, self.config.args)
+    Inherits pattern-based state detection from GenericAgent.
+    """
+    pass

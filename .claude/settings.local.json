@@ -17,7 +17,66 @@
       "Bash(cat:*)",
       "Bash(tmux kill-session:*)",
       "Bash(poetry run ai-arcade:*)",
-      "Bash(tmux capture-pane:*)"
+      "Bash(tmux capture-pane:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Bash(echo:*)",
+      "Bash(test:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"state\":\"processing\",\"timestamp\":'$(date +%s)'}' > /tmp/claude_arcade_state.json"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"state\":\"idle\",\"timestamp\":'$(date +%s)'}' > /tmp/claude_arcade_state.json"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"state\":\"processing\",\"timestamp\":'$(date +%s)'}' > /tmp/claude_arcade_state.json"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"state\":\"idle\",\"timestamp\":'$(date +%s)'}' > /tmp/claude_arcade_state.json"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"state\":\"idle\",\"timestamp\":'$(date +%s)'}' > /tmp/claude_arcade_state.json"
+          }
+        ]
+      }
     ]
   }
 }

@@ -112,6 +112,13 @@ class TmuxManager:
             "bind-key", "-n", toggle_key, "last-window"
         ])
 
+        # Bind Ctrl+q to exit application (kill session)
+        # Using -n flag to bind in root table (no prefix needed)
+        exit_key = self.config.keybindings.exit_app
+        self._send_tmux_cmd([
+            "bind-key", "-n", exit_key, "kill-session"
+        ])
+
     def launch_ai_agent(
         self,
         agent_command: str,
@@ -253,11 +260,11 @@ class TmuxManager:
         if self.agent_state_idle:
             # idle = user typing or agent waiting
             status_color = "green"
-            agent_status = "idle"
+            agent_status = "🤖 Agent idle"
         else:
             # active = agent thinking or generating
             status_color = "yellow"
-            agent_status = "active"
+            agent_status = "🤖 Agent working..."
 
         # Game status
         if self.current_game:
@@ -269,8 +276,8 @@ class TmuxManager:
         # Left: Agent status
         status_left = f" {agent_status} "
 
-        # Right: Toggle instruction | Game status
-        status_right = f" Ctrl+Space to toggle | {game_status} "
+        # Right: Toggle instruction | Exit instruction | Game status
+        status_right = f" Ctrl+Space to toggle | Ctrl+q to exit | {game_status} "
 
         # Set status bar with colored background
         self._send_tmux_cmd([
