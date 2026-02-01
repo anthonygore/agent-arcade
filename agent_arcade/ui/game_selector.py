@@ -4,6 +4,7 @@ from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
 from textual.screen import Screen
 from textual.widgets import DataTable, Header, Static
+from rich.text import Text
 
 
 class GameSelectorScreen(Screen):
@@ -44,8 +45,8 @@ class GameSelectorScreen(Screen):
     #instructions-column {
         width: 1fr;
         height: 100%;
-        padding-top: 1;
-        padding-right: 1;
+        padding-top: 0;
+        padding-right: 4;
         background: $surface;
         content-align: left top;
     }
@@ -53,7 +54,6 @@ class GameSelectorScreen(Screen):
     #game-table {
         height: 100%;
         width: 2fr;
-        padding-right: 1;
     }
 
     """
@@ -67,7 +67,7 @@ class GameSelectorScreen(Screen):
         """
         super().__init__()
         self.library = library
-        self.games = library.list_games(sort_by="last_played")
+        self.games = library.list_games(sort_by="name")
         self.selected_game_id: str = None
 
     def compose(self) -> ComposeResult:
@@ -84,21 +84,21 @@ class GameSelectorScreen(Screen):
 
                 for game_meta in self.games:
                     game_id = game_meta.id
-
                     table.add_row(
-                        game_meta.name,
-                        game_meta.description,
+                        Text(str(game_meta.name), style="italic #03AC13"),
+                        Text(str(game_meta.description), style="italic #03AC13"),
                         key=game_id
+                    )
+
+                with Container(id="instructions-column"):
+                    yield Static(
+                        "🤖 🎮 AGENT ARCADE\n\n"
+                        "Play fun arcade games while you wait on your AI agent.\n\n"
+                        "Tip: games automatically pause when you switch back to your Agent."
                     )
 
                 with Container(id="games-column"):
                     yield table
-
-                with Container(id="instructions-column"):
-                    yield Static(
-                        "Tip: games automatically pause when "
-                        "you switch back to your Agent"
-                    )
 
     def on_mount(self) -> None:
         """Focus the table when screen mounts."""
@@ -134,7 +134,7 @@ class GameSelectorScreen(Screen):
 
     def refresh_games(self) -> None:
         """Reload the game list and refresh the table."""
-        self.games = self.library.list_games(sort_by="last_played")
+        self.games = self.library.list_games(sort_by="name")
         table = self.query_one(DataTable)
         table.clear()
 
