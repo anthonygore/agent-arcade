@@ -10,6 +10,7 @@ from textual.widgets import Header
 from .config import Config
 from .game_library import GameLibrary, SaveStateManager
 from .games.base_game import BaseGame, GameState
+from .logger import logger
 from .ui.game_selector import GameSelectorScreen
 
 
@@ -33,6 +34,25 @@ def _set_tmux_game_keys(config: Config, bindings) -> None:
         pass
 
 
+def _set_tmux_current_game(config: Config, game_name: str | None) -> None:
+    """Update tmux status bar with current game name."""
+    try:
+        subprocess.run(
+            [
+                "tmux",
+                "set-option",
+                "-t",
+                config.tmux.session_name,
+                "@current-game",
+                game_name or "",
+            ],
+            check=False,
+        )
+    except FileNotFoundError:
+        # tmux not available; skip updating status bar
+        pass
+
+
 class WindowFocusMonitor:
     """Monitors tmux window focus and pauses/resumes game accordingly."""
 
@@ -53,6 +73,7 @@ class WindowFocusMonitor:
         self._running = False
         self._thread = None
         self._was_focused = True  # Start as focused
+        self._game_keys = tuple(game.key_bindings)
 
     def start(self) -> None:
         """Start monitoring window focus."""
@@ -71,6 +92,7 @@ class WindowFocusMonitor:
 
     def _monitor_loop(self) -> None:
         """Monitor loop that runs in background thread."""
+        logger.debug(f"WindowFocusMonitor started, initial state: _was_focused={self._was_focused}")
         while self._running:
             try:
                 is_focused = self._is_game_window_focused()
@@ -78,18 +100,23 @@ class WindowFocusMonitor:
                 # Detect focus changes
                 if is_focused and not self._was_focused:
                     # Window gained focus - resume game
+                    logger.info("WindowFocusMonitor: Game window gained focus -> calling resume()")
                     self.game.resume()
+                    _set_tmux_game_keys(self.config, self._game_keys)
                     self._was_focused = True
                 elif not is_focused and self._was_focused:
                     # Window lost focus - pause game
+                    logger.info("WindowFocusMonitor: Game window lost focus -> calling pause()")
                     self.game.pause()
+                    _set_tmux_game_keys(self.config, ())
                     self._was_focused = False
 
                 # Check every 0.5 seconds
                 time.sleep(0.5)
 
-            except Exception:
-                # Ignore errors and keep monitoring
+            except Exception as e:
+                # Log errors instead of silently ignoring them
+                logger.error(f"WindowFocusMonitor error: {e}")
                 time.sleep(0.5)
 
     def _is_game_window_focused(self) -> bool:
@@ -171,6 +198,7 @@ def main():
         save_manager = SaveStateManager()
 
         _set_tmux_game_keys(config, ())
+        _set_tmux_current_game(config, None)
 
         # Show game selector
         app = GameRunnerApp(config)
@@ -178,6 +206,7 @@ def main():
 
         # If user quit, exit the loop
         if result is None:
+            _set_tmux_current_game(config, None)
             break
 
         # Otherwise, run the selected game
@@ -191,7 +220,12 @@ def main():
             print(f"Error: Could not load game {game_id}")
             continue
 
+        # Pass config to game for dynamic key bindings
+        if hasattr(game, 'set_config'):
+            game.set_config(config)
+
         _set_tmux_game_keys(config, game.key_bindings)
+        _set_tmux_current_game(config, game.metadata.name)
 
         # Load save state if resuming
         if resume and save_manager.has_save(game_id):
@@ -242,6 +276,7 @@ def main():
             # Stop focus monitor
             focus_monitor.stop()
             _set_tmux_game_keys(config, ())
+            _set_tmux_current_game(config, None)
 
         # Loop back to show selector again
 

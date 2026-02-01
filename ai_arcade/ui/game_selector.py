@@ -1,9 +1,7 @@
 """Game selection UI for AI Arcade."""
 
-from datetime import datetime
-
 from textual.app import ComposeResult
-from textual.containers import Container
+from textual.containers import Container, Horizontal
 from textual.screen import Screen
 from textual.widgets import DataTable, Header, Static
 
@@ -24,15 +22,34 @@ class GameSelectorScreen(Screen):
 
     #header-text {
         dock: top;
-        height: 5;
+        height: 1;
         content-align: center middle;
         background: $panel;
         text-style: bold;
     }
 
-    DataTable {
+    #selector-columns {
         height: 100%;
         margin: 1;
+    }
+
+    #games-column {
+        width: 2fr;
+        height: 100%;
+        padding-right: 1;
+    }
+
+    #instructions-column {
+        width: 1fr;
+        height: 100%;
+        padding: 1;
+        background: $panel;
+        content-align: left top;
+    }
+
+    #game-table {
+        height: 100%;
+        width: 100%;
     }
 
     """
@@ -56,50 +73,34 @@ class GameSelectorScreen(Screen):
         """Compose UI layout."""
         yield Header()
 
-        yield Static("🎮 AI ARCADE - SELECT A GAME 🎮", id="header-text")
+        yield Static("Select game", id="header-text")
 
         with Container():
-            # Create game table
-            table = DataTable(cursor_type="row")
-            table.add_columns(
-                "Game",
-                "Category",
-                "Last Played",
-                "Plays",
-                "High Score",
-                "Resume?"
-            )
-
-            for game_meta in self.games:
-                game_id = game_meta.id
-
-                # Get stats from library metadata
-                stats = self.library.metadata["games"].get(game_id, {})
-
-                last_played = stats.get("last_played", "Never")
-                if last_played and last_played != "Never":
-                    try:
-                        dt = datetime.fromisoformat(last_played.replace('Z', '+00:00'))
-                        last_played = dt.strftime("%Y-%m-%d %H:%M")
-                    except:
-                        last_played = "Never"
-
-                play_count = stats.get("play_count", 0)
-                high_score = stats.get("high_score", "-")
-
-                has_save = "✓" if self.save_manager.has_save(game_id) else ""
-
-                table.add_row(
-                    game_meta.name,
-                    game_meta.category.title(),
-                    last_played,
-                    str(play_count),
-                    str(high_score),
-                    has_save,
-                    key=game_id
+            with Horizontal(id="selector-columns"):
+                # Create game table
+                table = DataTable(cursor_type="row", id="game-table")
+                table.add_columns(
+                    "Title",
+                    "Description",
                 )
 
-            yield table
+                for game_meta in self.games:
+                    game_id = game_meta.id
+
+                    table.add_row(
+                        game_meta.name,
+                        game_meta.description,
+                        key=game_id
+                    )
+
+                with Container(id="games-column"):
+                    yield table
+
+                with Container(id="instructions-column"):
+                    yield Static(
+                        "Please select a game. Tip: games automatically pause when "
+                        "you switch back to your Agent"
+                    )
 
     def on_mount(self) -> None:
         """Focus the table when screen mounts."""

@@ -91,23 +91,8 @@ class AIMonitor:
     def _monitor_game_status(self) -> None:
         """Monitor game window to detect current game."""
         try:
-            # Capture game window output
-            game_output = self.tmux.capture_window_output(
-                self.tmux.game_window_index,
-                lines=10
-            )
-
-            # Check for game indicators in output
-            # Look for common game patterns
-            current_game = None
-            if "Snake" in game_output or "snake" in game_output:
-                current_game = "Snake"
-            elif "Pong" in game_output or "pong" in game_output:
-                current_game = "Pong"
-            elif "Tetris" in game_output or "tetris" in game_output:
-                current_game = "Tetris"
-            elif "Game Selection" in game_output or "Select a game" in game_output:
-                current_game = None  # In selector
+            # Read game name from tmux session option (set by game runner).
+            current_game = self.tmux.get_session_option("@current-game")
 
             # Update status bar if game changed
             if current_game != self.tmux.current_game:

@@ -9,6 +9,10 @@ from textual.containers import Container
 from textual.widgets import Header, Static
 
 from .base_game import BaseGame, GameMetadata, GameState
+from ..logger import logger
+
+# Import for updating key bindings
+import subprocess
 
 
 class SnakeGame(BaseGame):
@@ -18,6 +22,7 @@ class SnakeGame(BaseGame):
         """Initialize Snake game."""
         super().__init__()
         self.app = None  # Reference to running SnakeApp
+        self.config = None  # Config for updating key bindings
 
     @property
     def metadata(self) -> GameMetadata:
@@ -34,12 +39,16 @@ class SnakeGame(BaseGame):
 
     @property
     def key_bindings(self) -> Tuple[str, ...]:
-        """Key bindings used by Snake."""
-        return ("Arrows: Move", "P: Pause", "Q: Quit")
+        """Key bindings used by Snake (initial display only, updated dynamically during play)."""
+        return ("Arrows: Move", "Space: Pause", "Q: Quit")
+
+    def set_config(self, config) -> None:
+        """Set config for updating key bindings."""
+        self.config = config
 
     def run(self) -> None:
         """Run the Snake game."""
-        self.app = SnakeApp(self)
+        self.app = SnakeApp(self, self.config)
         self.app.run()
         self.score = self.app.score
         self.state = self.app.game_state
@@ -74,26 +83,20 @@ class SnakeGame(BaseGame):
 class SnakeApp(App):
     """Textual app for Snake game."""
 
+    TITLE = "Snake"
+
     CSS = """
     Screen {
         align: center middle;
     }
 
-    #game-container {
-        width: 60;
-        height: 30;
-        border: solid green;
-        background: $panel;
-    }
-
-    #game-board {
-        width: 100%;
-        height: 100%;
-        content-align: center middle;
+    #game-wrapper {
+        width: 42;
+        height: auto;
     }
 
     #score-display {
-        dock: top;
+        width: 100%;
         height: 3;
         content-align: center middle;
         background: $boost;
@@ -101,8 +104,21 @@ class SnakeApp(App):
         text-style: bold;
     }
 
+    #game-container {
+        width: 42;
+        height: 17;
+        border: solid green;
+        background: $panel;
+    }
+
+    #game-board {
+        width: 100%;
+        height: 100%;
+        content-align: left top;
+    }
+
     #instructions {
-        dock: bottom;
+        width: 100%;
         height: 3;
         content-align: center middle;
         background: $panel;
@@ -110,23 +126,25 @@ class SnakeApp(App):
     """
 
     BINDINGS = [
-        ("p", "toggle_pause", "Pause"),
+        ("space", "toggle_pause", "Pause/Resume"),
+        ("enter", "restart", "Restart"),
         ("q", "quit_game", "Quit"),
     ]
 
-    def __init__(self, game: SnakeGame):
+    def __init__(self, game: SnakeGame, config=None):
         """Initialize the app."""
         super().__init__()
         self.game_ref = game
+        self.config = config
         self.score = 0
         self.game_state = GameState.PLAYING
 
         # Game board settings
-        self.board_width = 30
-        self.board_height = 20
+        self.board_width = 40
+        self.board_height = 15
 
         # Snake
-        self.snake: List[Tuple[int, int]] = [(15, 10), (14, 10), (13, 10)]
+        self.snake: List[Tuple[int, int]] = [(20, 7), (19, 7), (18, 7)]
         self.direction = (1, 0)  # (dx, dy) - moving right initially
         self.next_direction = (1, 0)
 
@@ -136,6 +154,11 @@ class SnakeApp(App):
         # Game state
         self.is_paused = False
         self.game_over = False
+        self.game_over_reason = ""
+
+        # External pause/resume requests (thread-safe flags)
+        self._pending_pause = False
+        self._pending_resume = False
 
         # Timer for game updates
         self.update_timer = None
@@ -144,16 +167,52 @@ class SnakeApp(App):
         """Create child widgets."""
         yield Header()
 
-        with Container(id="game-container"):
+        with Container(id="game-wrapper"):
             yield Static(id="score-display")
-            yield Static(id="game-board")
-
-        yield Static(id="instructions")
+            with Container(id="game-container"):
+                yield Static(id="game-board")
+            yield Static(id="instructions")
     def on_mount(self) -> None:
         """Called when app starts."""
+        logger.info("Snake game started")
         self._update_display()
+        self._update_key_bindings()
         # Start game loop (update every 150ms)
         self.update_timer = self.set_interval(0.15, self._game_tick)
+        logger.debug(f"Game loop started with interval 0.15s")
+
+    def _update_key_bindings(self) -> None:
+        """Update tmux key bindings bar based on current game state."""
+        if not self.config:
+            return
+
+        bindings = ["Arrows: Move"]
+
+        if self.game_over:
+            bindings.append("Enter: Restart")
+        elif self.is_paused:
+            bindings.append("Space: Resume")
+        else:
+            bindings.append("Space: Pause")
+
+        bindings.append("Q: Quit")
+
+        # Update tmux bar
+        key_text = " | ".join(bindings)
+        try:
+            subprocess.run(
+                [
+                    "tmux",
+                    "set-option",
+                    "-t",
+                    self.config.tmux.session_name,
+                    "@game-keys",
+                    key_text,
+                ],
+                check=False,
+            )
+        except FileNotFoundError:
+            pass
 
     def on_key(self, event: events.Key) -> None:
         """Handle key presses."""
@@ -178,6 +237,25 @@ class SnakeApp(App):
 
     def _game_tick(self) -> None:
         """Update game state each tick."""
+        # Handle external pause/resume requests (from WindowFocusMonitor thread)
+        if self._pending_pause:
+            self._pending_pause = False
+            if not self.game_over and not self.is_paused:
+                logger.info("Game paused (external trigger)")
+                self.is_paused = True
+                self.game_state = GameState.PAUSED
+                self._update_display()
+                self._update_key_bindings()
+
+        if self._pending_resume:
+            self._pending_resume = False
+            if not self.game_over and self.is_paused:
+                logger.info("Game resumed (external trigger)")
+                self.is_paused = False
+                self.game_state = GameState.PLAYING
+                self._update_display()
+                self._update_key_bindings()
+
         if self.game_over or self.is_paused:
             return
 
@@ -191,7 +269,8 @@ class SnakeApp(App):
         # Check wall collision FIRST
         if (new_head[0] < 0 or new_head[0] >= self.board_width or
             new_head[1] < 0 or new_head[1] >= self.board_height):
-            self._game_over()
+            logger.warning(f"Wall collision detected: new_head={new_head}, direction={self.direction}, board_size=({self.board_width}, {self.board_height})")
+            self._game_over(f"wall collision at {new_head}")
             return
 
         # Check if we're eating food
@@ -205,6 +284,7 @@ class SnakeApp(App):
             # Grow: keep the tail, spawn new food
             self.score += 10
             self.food = self._spawn_food()
+            logger.debug(f"Food eaten! Score: {self.score}, snake length: {len(self.snake)}")
         else:
             # Don't grow: remove the tail
             self.snake.pop()
@@ -214,7 +294,8 @@ class SnakeApp(App):
         # snake[0] is the new head, so check snake[1:] for collision
         if len(self.snake) > 1:
             if self.snake[0] in self.snake[1:]:
-                self._game_over()
+                logger.warning(f"Self collision detected: head={self.snake[0]}, body={self.snake[1:]}, direction={self.direction}")
+                self._game_over(f"self collision at {self.snake[0]}, body: {self.snake[1:]}")
                 return
 
         self._update_display()
@@ -273,37 +354,72 @@ class SnakeApp(App):
 
         return "\n".join(lines)
 
-    def _game_over(self) -> None:
+    def _game_over(self, reason: str = "unknown") -> None:
         """Handle game over."""
+        logger.error(f"GAME OVER: {reason}, score={self.score}, snake_length={len(self.snake)}")
         self.game_over = True
         self.game_state = GameState.GAME_OVER
+        self.game_over_reason = reason  # Store for debugging
         self._update_display()
+        self._update_key_bindings()
 
     def action_toggle_pause(self) -> None:
         """Toggle pause state."""
         if not self.game_over:
             self.is_paused = not self.is_paused
             if self.is_paused:
+                logger.info("Game paused by user (Space key)")
                 self.game_state = GameState.PAUSED
             else:
+                logger.info("Game resumed by user (Space key)")
                 self.game_state = GameState.PLAYING
             self._update_display()
+            self._update_key_bindings()
+
+    def action_restart(self) -> None:
+        """Restart the game (only works when game over)."""
+        if not self.game_over:
+            return  # Only restart when game is over
+
+        logger.info(f"Game restarted by user, previous score: {self.score}")
+        # Reset score
+        self.score = 0
+        self.game_state = GameState.PLAYING
+
+        # Reset snake
+        self.snake = [(20, 7), (19, 7), (18, 7)]
+        self.direction = (1, 0)
+        self.next_direction = (1, 0)
+
+        # Spawn new food
+        self.food = self._spawn_food()
+
+        # Reset game state
+        self.is_paused = False
+        self.game_over = False
+        self.game_over_reason = ""
+
+        # Reset pending flags
+        self._pending_pause = False
+        self._pending_resume = False
+
+        self._update_display()
+        self._update_key_bindings()
 
     def action_quit_game(self) -> None:
         """Quit the game."""
+        logger.info(f"User quit game manually, final score: {self.score}")
         self.game_state = GameState.QUIT
         self.exit()
 
     def external_pause(self) -> None:
         """Pause game from external trigger (window switch)."""
-        if not self.game_over and not self.is_paused:
-            self.is_paused = True
-            self.game_state = GameState.PAUSED
-            self._update_display()
+        logger.debug("external_pause() called - setting pause flag")
+        # Set flag to be processed in next game tick (thread-safe)
+        self._pending_pause = True
 
     def external_resume(self) -> None:
         """Resume game from external trigger (window switch)."""
-        if not self.game_over and self.is_paused:
-            self.is_paused = False
-            self.game_state = GameState.PLAYING
-            self._update_display()
+        logger.debug("external_resume() called - setting resume flag")
+        # Set flag to be processed in next game tick (thread-safe)
+        self._pending_resume = True

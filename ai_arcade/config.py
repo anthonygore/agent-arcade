@@ -25,7 +25,7 @@ class TmuxConfig:
 
     session_name: str = "ai-arcade"
     status_bar: bool = True
-    mouse_mode: bool = True
+    mouse_mode: bool = False
 
 
 @dataclass
@@ -200,7 +200,7 @@ class Config:
             "tmux": {
                 "session_name": "ai-arcade",
                 "status_bar": True,
-                "mouse_mode": True
+                "mouse_mode": False
             },
             "monitoring": {
                 "check_interval": 0.5,
@@ -268,7 +268,7 @@ class Config:
         tmux = TmuxConfig(
             session_name=tmux_data.get("session_name", "ai-arcade"),
             status_bar=tmux_data.get("status_bar", True),
-            mouse_mode=tmux_data.get("mouse_mode", True)
+            mouse_mode=tmux_data.get("mouse_mode", False)
         )
 
         # Parse monitoring config

@@ -93,6 +93,8 @@ class TmuxManager:
         # Enable mouse mode if configured
         if self.config.tmux.mouse_mode:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "on"])
+        else:
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "off"])
 
         # Configure status bar
         if self.config.tmux.status_bar:
@@ -107,8 +109,8 @@ class TmuxManager:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "window-status-separator", ""])
             # Key bindings bar (top line)
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "@game-keys", ""])
-            keybar_left = " Ctrl+Space: Toggle | Ctrl+Q: Quit "
-            keybar_right = "#{?@game-keys, #{@game-keys} ,}"
+            keybar_left = "#{?@game-keys, #{@game-keys} ,}"
+            keybar_right = " Ctrl+Space: Toggle | Ctrl+Q: Quit "
             keybar_format = (
                 "#[bg=colour238,fg=white,bold,align=left]"
                 f"{keybar_left}"
@@ -131,9 +133,18 @@ class TmuxManager:
         # Bind Ctrl+Space to toggle between windows (last-window command)
         # Using -n flag to bind in root table (no prefix needed)
         toggle_key = self.config.keybindings.toggle_window
+
+        # Simple approach: just toggle windows, mouse mode handled separately
         self._send_tmux_cmd([
             "bind-key", "-n", toggle_key, "last-window"
         ])
+
+        # If mouse mode is enabled, keep it on globally
+        # Users can hold Shift to select text in tmux even with mouse mode on
+        if self.config.tmux.mouse_mode:
+            self._send_tmux_cmd([
+                "set-option", "-t", self.session_name, "mouse", "on"
+            ])
 
         # Bind Ctrl+q to exit application (kill session)
         # Using -n flag to bind in root table (no prefix needed)
@@ -359,3 +370,32 @@ class TmuxManager:
             args: Command arguments
         """
         subprocess.run(["tmux"] + args, check=True)
+
+    def get_session_option(self, option: str) -> Optional[str]:
+        """
+        Read a tmux option value for the session.
+
+        Args:
+            option: Option name (e.g. "@current-game")
+
+        Returns:
+            Option value or None if unavailable
+        """
+        try:
+            result = subprocess.run(
+                [
+                    "tmux",
+                    "display-message",
+                    "-t",
+                    self.session_name,
+                    "-p",
+                    f"#{{{option}}}",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            value = result.stdout.strip()
+            return value if value else None
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
