@@ -68,7 +68,7 @@ class KeybindingsConfig:
     """Configuration for keybindings."""
 
     toggle_window: str = "C-Space"  # Ctrl+Space to toggle between AI and Games
-    exit_app: str = "C-q"  # Ctrl+q to exit application
+    exit_app: str = "C-x"  # Ctrl+x to exit application
 
 
 class Config:
@@ -136,7 +136,7 @@ class Config:
             },
             "keybindings": {
                 "toggle_window": "C-Space",
-                "exit_app": "C-q"
+                "exit_app": "C-x"
             }
         }
 
@@ -164,27 +164,6 @@ class Config:
                 ready_patterns=[],
                 working_directory=None,
                 log_file="~/.codex/log/codex-tui.log",
-            ),
-            "aider": AgentConfig(
-                id="aider",
-                name="Aider",
-                command="aider",
-                args=[],
-                ready_patterns=[
-                    "^> ",
-                    "Add .+ to the chat\\?",
-                ],
-                working_directory=None,
-                log_file=None,
-            ),
-            "cursor": AgentConfig(
-                id="cursor",
-                name="Cursor AI",
-                command="cursor-cli",
-                args=[],
-                ready_patterns=["^> "],
-                working_directory=None,
-                log_file=None,
             ),
         }
 
@@ -250,7 +229,7 @@ class Config:
             # Migrate from old format - just use C-Space
             toggle_key = "C-Space"
 
-        exit_key = kb_data.get("exit_app", "C-q")
+        exit_key = kb_data.get("exit_app", "C-x")
 
         keybindings = KeybindingsConfig(
             toggle_window=toggle_key,

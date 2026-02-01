@@ -48,7 +48,7 @@ All 25 packages installed successfully:
 ### Configuration Loading ✅
 ```
 ✅ Config loaded successfully
-Available agents: ['claude_code', 'aider', 'cursor']
+Available agents: ['claude_code', 'codex']
 Config file created at: ~/.ai-arcade/config.yaml
 ```
 

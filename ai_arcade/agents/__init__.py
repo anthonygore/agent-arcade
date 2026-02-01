@@ -1,17 +1,13 @@
 """AI agent integrations."""
 
-from .aider import AiderAgent
 from .base import BaseAgent, AgentStatus
 from .claude_code import ClaudeCodeAgent
 from .codex import CodexAgent
-from .generic import GenericAgent
 
 # Agent class registry
 AGENT_CLASSES = {
     "claude_code": ClaudeCodeAgent,
     "codex": CodexAgent,
-    "aider": AiderAgent,
-    "cursor": GenericAgent,
 }
 
 

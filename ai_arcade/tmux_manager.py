@@ -110,7 +110,7 @@ class TmuxManager:
             # Key bindings bar (top line)
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "@game-keys", ""])
             keybar_left = "#{?@game-keys, #{@game-keys} ,}"
-            keybar_right = " Ctrl+Space: Switch View | Ctrl+Q: Exit "
+            keybar_right = " Ctrl+Space: Switch View | Ctrl+X: Exit "
             keybar_format = (
                 "#[bg=colour238,fg=white,bold,align=left]"
                 f"{keybar_left}"
@@ -146,7 +146,7 @@ class TmuxManager:
                 "set-option", "-t", self.session_name, "mouse", "on"
             ])
 
-        # Bind Ctrl+q to exit application (kill session)
+        # Bind Ctrl+x to exit application (kill session)
         # Using -n flag to bind in root table (no prefix needed)
         exit_key = self.config.keybindings.exit_app
         self._send_tmux_cmd([
@@ -171,24 +171,80 @@ class TmuxManager:
             args = []
 
         # Build full command
-        full_command = f"{agent_command} {' '.join(args)}"
+        full_command = f"{agent_command} {' '.join(args)}".strip()
 
         # Add cd command if working directory specified
         if working_dir:
             full_command = f"cd {shlex.quote(str(working_dir))} && {full_command}"
 
-        # Launch agent using respawn-pane to avoid showing the command being typed
-        subprocess.run([
-            "tmux", "respawn-pane", "-t",
-            f"{self.session_name}:{self.ai_window_index}",
-            "-k", full_command
-        ], check=True)
+        # Wrap in restart loop so Ctrl+C or exits restart the process
+        wrapped = self._wrap_restart_command(full_command)
+        self._respawn_pane(self.ai_window_index, wrapped)
 
     def launch_game_runner(self) -> None:
         """Launch game runner in game window."""
         # Use Poetry to run the game runner module in the virtual environment
         runner_cmd = "export PATH=\"/Users/anthonygore/.local/bin:$PATH\" && poetry run python -m ai_arcade.game_runner"
-        self.send_to_window(self.game_window_index, runner_cmd)
+        wrapped = self._wrap_restart_command(runner_cmd)
+        self._respawn_pane(self.game_window_index, wrapped)
+
+    def is_pane_dead(self, window_index: int) -> bool:
+        """
+        Check if a tmux pane is dead.
+
+        Args:
+            window_index: Window index to check
+
+        Returns:
+            True if pane is dead
+        """
+        try:
+            result = subprocess.run(
+                [
+                    "tmux",
+                    "list-panes",
+                    "-t",
+                    f"{self.session_name}:{window_index}",
+                    "-F",
+                    "#{pane_dead}",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip() == "1"
+        except subprocess.CalledProcessError:
+            return False
+
+    def _respawn_pane(self, window_index: int, command: str) -> None:
+        """
+        Respawn a pane with a command.
+
+        Args:
+            window_index: Window index to respawn
+            command: Command string to run
+        """
+        subprocess.run(
+            [
+                "tmux",
+                "respawn-pane",
+                "-t",
+                f"{self.session_name}:{window_index}",
+                "-k",
+                command,
+            ],
+            check=True,
+        )
+
+    def _wrap_restart_command(self, command: str) -> str:
+        """
+        Wrap a command in a restart loop that ignores Ctrl+C in the wrapper.
+
+        Args:
+            command: Command string to run
+        """
+        loop = f'trap "" INT; while true; do clear; {command}; sleep 1; done'
+        return f"bash -lc {shlex.quote(loop)}"
 
     def send_to_window(
         self,
@@ -320,7 +376,7 @@ class TmuxManager:
         if self.current_game:
             game_status = f"🎮 Playing: {self.current_game}"
         else:
-            game_status = "No game selected"
+            game_status = "🎮 No game selected"
 
         # Build status bar components
         # Left: Agent status

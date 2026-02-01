@@ -196,11 +196,19 @@ class CodexAgent(BaseAgent):
         """Monitor tmux pane for the Codex activity indicator."""
         if not self.tmux:
             return False
+        try:
+            if self.tmux.is_pane_dead(self.tmux.ai_window_index):
+                return False
+        except Exception:
+            return False
 
-        output = self.tmux.capture_window_output(
-            self.tmux.ai_window_index,
-            lines=self.buffer_lines
-        )
+        try:
+            output = self.tmux.capture_window_output(
+                self.tmux.ai_window_index,
+                lines=self.buffer_lines
+            )
+        except Exception:
+            return False
         if output != self._tmux_last_output:
             self._tmux_last_output = output
 

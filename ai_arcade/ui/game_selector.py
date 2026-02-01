@@ -44,14 +44,16 @@ class GameSelectorScreen(Screen):
     #instructions-column {
         width: 1fr;
         height: 100%;
-        padding: 1;
-        background: $panel;
+        padding-top: 1;
+        padding-right: 1;
+        background: $surface;
         content-align: left top;
     }
 
     #game-table {
         height: 100%;
-        width: 100%;
+        width: 2fr;
+        padding-right: 1;
     }
 
     """
@@ -94,7 +96,7 @@ class GameSelectorScreen(Screen):
 
                 with Container(id="instructions-column"):
                     yield Static(
-                        "Please select a game. Tip: games automatically pause when "
+                        "Tip: games automatically pause when "
                         "you switch back to your Agent"
                     )
 
