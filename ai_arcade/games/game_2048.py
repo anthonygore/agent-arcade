@@ -68,7 +68,7 @@ class Game2048Screen(Screen):
 
     CSS = """
     Screen {
-        align: center middle;
+        background: $surface;
     }
 
     Header {
@@ -76,8 +76,8 @@ class Game2048Screen(Screen):
     }
 
     #game-container {
-        width: 50;
-        height: 28;
+        width: 100%;
+        height: 1fr;
         border: solid cyan;
         background: $panel;
     }
@@ -92,8 +92,14 @@ class Game2048Screen(Screen):
     }
 
     #game-board {
+        width: auto;
+        height: auto;
+        content-align: center middle;
+    }
+
+    #game-board-wrap {
         width: 100%;
-        height: 100%;
+        height: 1fr;
         content-align: center middle;
     }
 
@@ -133,7 +139,8 @@ class Game2048Screen(Screen):
         yield Header()
         with Container(id="game-container"):
             yield Static(id="score-display")
-            yield Static(id="game-board")
+            with Container(id="game-board-wrap"):
+                yield Static(id="game-board")
 
         yield Static(id="instructions")
 

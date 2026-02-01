@@ -19,17 +19,20 @@ class GameSelectorScreen(Screen):
 
     CSS = """
     Screen {
-        align: center middle;
+        background: $surface;
+    }
+
+    Header {
+        dock: top;
     }
 
     #selector-wrapper {
         width: 100%;
-        max-width: 120;
         height: 100%;
-        max-height: 30;
     }
 
     #selector-columns {
+        width: 100%;
         height: 100%;
         margin: 1;
     }

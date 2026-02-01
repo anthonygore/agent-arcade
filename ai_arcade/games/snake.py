@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 from textual import events
 from textual.app import App, ComposeResult
-from textual.containers import Container
+from textual.containers import Container, Vertical
 from textual.screen import Screen
 from textual.widgets import Header, Static
 
@@ -90,7 +90,7 @@ class SnakeScreen(Screen):
 
     CSS = """
     Screen {
-        align: center middle;
+        background: $surface;
     }
 
     Header {
@@ -98,37 +98,52 @@ class SnakeScreen(Screen):
     }
 
     #game-wrapper {
+        width: 100%;
+        height: 100%;
+        align: center middle;
+        padding: 1 0;
+    }
+
+    #game-card {
         width: 42;
         height: auto;
+        background: transparent;
+        align: center top;
     }
 
     #score-display {
-        width: 100%;
+        width: 42;
+        min-width: 0;
         height: 3;
         content-align: center middle;
         background: $boost;
         color: $text;
         text-style: bold;
+        padding: 0 1;
     }
 
-    #game-container {
+    #game-board-wrap {
         width: 42;
         height: 17;
         border: solid green;
         background: $panel;
+        align: center middle;
+        padding: 0;
     }
 
     #game-board {
-        width: 100%;
-        height: 100%;
+        width: 40;
+        height: 15;
         content-align: left top;
     }
 
     #instructions {
-        width: 100%;
+        width: 42;
+        min-width: 0;
         height: 3;
         content-align: center middle;
         background: $panel;
+        padding: 0 1;
     }
     """
 
@@ -174,10 +189,11 @@ class SnakeScreen(Screen):
         """Create child widgets."""
         yield Header()
         with Container(id="game-wrapper"):
-            yield Static(id="score-display")
-            with Container(id="game-container"):
-                yield Static(id="game-board")
-            yield Static(id="instructions")
+            with Vertical(id="game-card"):
+                yield Static(id="score-display")
+                with Container(id="game-board-wrap"):
+                    yield Static(id="game-board")
+                yield Static(id="instructions")
 
     def on_mount(self) -> None:
         """Called when app starts."""
@@ -320,7 +336,7 @@ class SnakeScreen(Screen):
         """Update the game display."""
         # Update score
         score_widget = self.query_one("#score-display", Static)
-        score_widget.update(f"🐍 SNAKE | Score: {self.score}")
+        score_widget.update(f"SNAKE | Score: {self.score}")
 
         # Update game board
         board_widget = self.query_one("#game-board", Static)
@@ -353,13 +369,13 @@ class SnakeScreen(Screen):
 
                 if pos == self.snake[0]:
                     # Snake head
-                    line += "●"
+                    line += "@"
                 elif pos in self.snake:
                     # Snake body
-                    line += "○"
+                    line += "o"
                 elif pos == self.food:
                     # Food
-                    line += "◆"
+                    line += "*"
                 else:
                     # Empty space
                     line += " "
