@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 from textual import events
 from textual.app import App, ComposeResult
 from textual.containers import Container
+from textual.screen import Screen
 from textual.widgets import Header, Static
 
 from .base_game import BaseGame, GameMetadata, GameState
@@ -17,6 +18,7 @@ class Game2048(BaseGame):
     def __init__(self):
         """Initialize 2048 game."""
         super().__init__()
+        self.screen = None
 
     @property
     def metadata(self) -> GameMetadata:
@@ -38,10 +40,13 @@ class Game2048(BaseGame):
 
     def run(self) -> None:
         """Run the 2048 game."""
-        app = Game2048App(self)
+        app = Game2048StandaloneApp(self)
         app.run()
-        self.score = app.score
-        self.state = app.game_state
+
+    def create_screen(self) -> "Game2048Screen":
+        """Create the game screen for use in the hub app."""
+        self.screen = Game2048Screen(self)
+        return self.screen
 
     def get_save_state(self) -> Dict[str, Any]:
         """Get current game state for saving."""
@@ -56,12 +61,18 @@ class Game2048(BaseGame):
         self.score = state.get("score", 0)
 
 
-class Game2048App(App):
-    """Textual app for 2048 game."""
+class Game2048Screen(Screen):
+    """Textual screen for 2048 game."""
+
+    TITLE = "2048"
 
     CSS = """
     Screen {
         align: center middle;
+    }
+
+    Header {
+        dock: top;
     }
 
     #game-container {
@@ -101,10 +112,10 @@ class Game2048App(App):
     ]
 
     def __init__(self, game: Game2048):
-        """Initialize the app."""
+        """Initialize the screen."""
         super().__init__()
         self.game_ref = game
-        self.score = 0
+        self.score = game.score
         self.game_state = GameState.PLAYING
 
         # Initialize 4x4 grid
@@ -120,14 +131,15 @@ class Game2048App(App):
     def compose(self) -> ComposeResult:
         """Create child widgets."""
         yield Header()
-
         with Container(id="game-container"):
             yield Static(id="score-display")
             yield Static(id="game-board")
 
         yield Static(id="instructions")
+
     def on_mount(self) -> None:
         """Called when app starts."""
+        self.app.title = self.TITLE
         self._update_display()
 
     def on_key(self, event: events.Key) -> None:
@@ -262,6 +274,7 @@ class Game2048App(App):
                 self.won = True
                 self.game_over = True
                 self.game_state = GameState.GAME_OVER
+                self._sync_game_ref()
                 return
 
         # Check if any moves possible
@@ -285,6 +298,7 @@ class Game2048App(App):
         # No moves possible - game over
         self.game_over = True
         self.game_state = GameState.GAME_OVER
+        self._sync_game_ref()
 
     def _update_display(self) -> None:
         """Update the game display."""
@@ -308,6 +322,12 @@ class Game2048App(App):
             instructions_widget.update("PAUSED")
         else:
             instructions_widget.update("")
+        self._sync_game_ref()
+
+    def _sync_game_ref(self) -> None:
+        """Sync game state back to the game instance."""
+        self.game_ref.score = self.score
+        self.game_ref.state = self.game_state
 
     def _render_board(self) -> str:
         """Render the game board as text."""
@@ -340,6 +360,7 @@ class Game2048App(App):
                 self.game_state = GameState.PAUSED
             else:
                 self.game_state = GameState.PLAYING
+            self._sync_game_ref()
             self._update_display()
 
     def action_restart(self) -> None:
@@ -352,9 +373,38 @@ class Game2048App(App):
         self.won = False
         self.is_paused = False
         self.game_state = GameState.PLAYING
+        self._sync_game_ref()
         self._update_display()
 
     def action_quit_game(self) -> None:
         """Quit the game."""
         self.game_state = GameState.QUIT
+        self._sync_game_ref()
+        self.dismiss()
+
+
+class Game2048StandaloneApp(App):
+    """Standalone app wrapper for the 2048 screen."""
+
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+    """
+
+    def __init__(self, game: Game2048):
+        """Initialize the standalone app."""
+        super().__init__()
+        self.game = game
+
+    def compose(self) -> ComposeResult:
+        """Compose UI layout."""
+        yield from ()
+
+    def on_mount(self) -> None:
+        """Mount the game screen."""
+        self.push_screen(self.game.create_screen(), self._handle_game_exit)
+
+    def _handle_game_exit(self, _result) -> None:
+        """Exit once the game screen dismisses."""
         self.exit()

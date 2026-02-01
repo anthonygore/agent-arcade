@@ -9,6 +9,8 @@ from textual.widgets import DataTable, Header, Static
 class GameSelectorScreen(Screen):
     """Game selection menu screen."""
 
+    TITLE = "Select a game"
+
     BINDINGS = [
         ("q", "quit_to_menu", "Quit"),
         ("enter", "select_game", "Play"),
@@ -17,15 +19,14 @@ class GameSelectorScreen(Screen):
 
     CSS = """
     Screen {
-        background: $surface;
+        align: center middle;
     }
 
-    #header-text {
-        dock: top;
-        height: 1;
-        content-align: center middle;
-        background: $panel;
-        text-style: bold;
+    #selector-wrapper {
+        width: 100%;
+        max-width: 120;
+        height: 100%;
+        max-height: 30;
     }
 
     #selector-columns {
@@ -72,10 +73,7 @@ class GameSelectorScreen(Screen):
     def compose(self) -> ComposeResult:
         """Compose UI layout."""
         yield Header()
-
-        yield Static("Select game", id="header-text")
-
-        with Container():
+        with Container(id="selector-wrapper"):
             with Horizontal(id="selector-columns"):
                 # Create game table
                 table = DataTable(cursor_type="row", id="game-table")
@@ -104,6 +102,13 @@ class GameSelectorScreen(Screen):
 
     def on_mount(self) -> None:
         """Focus the table when screen mounts."""
+        self.app.title = self.TITLE
+        table = self.query_one(DataTable)
+        table.focus()
+
+    def on_screen_resume(self) -> None:
+        """Restore focus and title when returning to the menu."""
+        self.app.title = self.TITLE
         table = self.query_one(DataTable)
         table.focus()
 
@@ -117,7 +122,7 @@ class GameSelectorScreen(Screen):
         if event.row_key:
             self.selected_game_id = event.row_key.value
             self.resume = False
-            self.dismiss({"game_id": self.selected_game_id, "resume": self.resume})
+            self.app.launch_game(self.selected_game_id, self.resume)
 
     def action_select_game(self) -> None:
         """Play selected game (new game)."""
@@ -127,7 +132,7 @@ class GameSelectorScreen(Screen):
             if cursor_key.row_key:
                 self.selected_game_id = cursor_key.row_key.value
                 self.resume = False
-                self.dismiss({"game_id": self.selected_game_id, "resume": self.resume})
+                self.app.launch_game(self.selected_game_id, self.resume)
 
     def action_resume_game(self) -> None:
         """Resume selected game if save exists."""
@@ -140,11 +145,24 @@ class GameSelectorScreen(Screen):
                 if self.save_manager.has_save(game_id):
                     self.selected_game_id = game_id
                     self.resume = True
-                    self.dismiss({"game_id": self.selected_game_id, "resume": self.resume})
+                    self.app.launch_game(self.selected_game_id, self.resume)
                 else:
                     # Show notification that no save exists
                     self.notify("No saved game", severity="warning")
 
     def action_quit_to_menu(self) -> None:
         """Quit to menu."""
-        self.dismiss(None)
+        self.app.exit()
+
+    def refresh_games(self) -> None:
+        """Reload the game list and refresh the table."""
+        self.games = self.library.list_games(sort_by="last_played")
+        table = self.query_one(DataTable)
+        table.clear()
+
+        for game_meta in self.games:
+            table.add_row(
+                game_meta.name,
+                game_meta.description,
+                key=game_meta.id,
+            )

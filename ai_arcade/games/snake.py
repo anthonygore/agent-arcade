@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 from textual import events
 from textual.app import App, ComposeResult
 from textual.containers import Container
+from textual.screen import Screen
 from textual.widgets import Header, Static
 
 from .base_game import BaseGame, GameMetadata, GameState
@@ -21,7 +22,7 @@ class SnakeGame(BaseGame):
     def __init__(self):
         """Initialize Snake game."""
         super().__init__()
-        self.app = None  # Reference to running SnakeApp
+        self.screen = None  # Reference to running SnakeScreen
         self.config = None  # Config for updating key bindings
 
     @property
@@ -48,11 +49,13 @@ class SnakeGame(BaseGame):
 
     def run(self) -> None:
         """Run the Snake game."""
-        self.app = SnakeApp(self, self.config)
-        self.app.run()
-        self.score = self.app.score
-        self.state = self.app.game_state
-        self.app = None  # Clear reference after game ends
+        app = SnakeStandaloneApp(self)
+        app.run()
+
+    def create_screen(self) -> "SnakeScreen":
+        """Create the game screen for use in the hub app."""
+        self.screen = SnakeScreen(self, self.config)
+        return self.screen
 
     def get_save_state(self) -> Dict[str, Any]:
         """Get current game state for saving."""
@@ -70,24 +73,28 @@ class SnakeGame(BaseGame):
     def pause(self) -> None:
         """Pause the game when switching away from game window."""
         super().pause()
-        if self.app and not self.app.game_over:
-            self.app.external_pause()
+        if self.screen and not self.screen.game_over:
+            self.screen.external_pause()
 
     def resume(self) -> None:
         """Resume the game when switching back to game window."""
         super().resume()
-        if self.app and not self.app.game_over:
-            self.app.external_resume()
+        if self.screen and not self.screen.game_over:
+            self.screen.external_resume()
 
 
-class SnakeApp(App):
-    """Textual app for Snake game."""
+class SnakeScreen(Screen):
+    """Textual screen for Snake game."""
 
     TITLE = "Snake"
 
     CSS = """
     Screen {
         align: center middle;
+    }
+
+    Header {
+        dock: top;
     }
 
     #game-wrapper {
@@ -132,11 +139,11 @@ class SnakeApp(App):
     ]
 
     def __init__(self, game: SnakeGame, config=None):
-        """Initialize the app."""
+        """Initialize the screen."""
         super().__init__()
         self.game_ref = game
         self.config = config
-        self.score = 0
+        self.score = game.score
         self.game_state = GameState.PLAYING
 
         # Game board settings
@@ -166,14 +173,15 @@ class SnakeApp(App):
     def compose(self) -> ComposeResult:
         """Create child widgets."""
         yield Header()
-
         with Container(id="game-wrapper"):
             yield Static(id="score-display")
             with Container(id="game-container"):
                 yield Static(id="game-board")
             yield Static(id="instructions")
+
     def on_mount(self) -> None:
         """Called when app starts."""
+        self.app.title = self.TITLE
         logger.info("Snake game started")
         self._update_display()
         self._update_key_bindings()
@@ -327,6 +335,12 @@ class SnakeApp(App):
             instructions_widget.update("PAUSED")
         else:
             instructions_widget.update("")
+        self._sync_game_ref()
+
+    def _sync_game_ref(self) -> None:
+        """Sync game state back to the game instance."""
+        self.game_ref.score = self.score
+        self.game_ref.state = self.game_state
 
     def _render_board(self) -> str:
         """Render the game board as text."""
@@ -373,6 +387,7 @@ class SnakeApp(App):
             else:
                 logger.info("Game resumed by user (Space key)")
                 self.game_state = GameState.PLAYING
+            self._sync_game_ref()
             self._update_display()
             self._update_key_bindings()
 
@@ -403,6 +418,7 @@ class SnakeApp(App):
         self._pending_pause = False
         self._pending_resume = False
 
+        self._sync_game_ref()
         self._update_display()
         self._update_key_bindings()
 
@@ -410,7 +426,8 @@ class SnakeApp(App):
         """Quit the game."""
         logger.info(f"User quit game manually, final score: {self.score}")
         self.game_state = GameState.QUIT
-        self.exit()
+        self._sync_game_ref()
+        self.dismiss()
 
     def external_pause(self) -> None:
         """Pause game from external trigger (window switch)."""
@@ -423,3 +440,30 @@ class SnakeApp(App):
         logger.debug("external_resume() called - setting resume flag")
         # Set flag to be processed in next game tick (thread-safe)
         self._pending_resume = True
+
+
+class SnakeStandaloneApp(App):
+    """Standalone app wrapper for the Snake screen."""
+
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+    """
+
+    def __init__(self, game: SnakeGame):
+        """Initialize the standalone app."""
+        super().__init__()
+        self.game = game
+
+    def compose(self) -> ComposeResult:
+        """Compose UI layout."""
+        yield from ()
+
+    def on_mount(self) -> None:
+        """Mount the game screen."""
+        self.push_screen(self.game.create_screen(), self._handle_game_exit)
+
+    def _handle_game_exit(self, _result) -> None:
+        """Exit once the game screen dismisses."""
+        self.exit()

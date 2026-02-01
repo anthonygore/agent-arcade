@@ -143,6 +143,16 @@ class WindowFocusMonitor:
 class GameRunnerApp(App):
     """Main game runner application."""
 
+    CSS = """
+    Screen {
+        background: $surface;
+    }
+
+    Header {
+        background: $panel;
+    }
+    """
+
     def __init__(self, config: Config):
         """
         Initialize game runner.
@@ -154,6 +164,10 @@ class GameRunnerApp(App):
         self.config = config
         self.library = GameLibrary()
         self.save_manager = SaveStateManager()
+        self.menu_screen = GameSelectorScreen(self.library, self.save_manager)
+        self.current_game: BaseGame | None = None
+        self.current_game_start_time: float | None = None
+        self.focus_monitor: WindowFocusMonitor | None = None
 
     def compose(self) -> ComposeResult:
         """Compose UI layout."""
@@ -161,22 +175,9 @@ class GameRunnerApp(App):
 
     def on_mount(self) -> None:
         """Called when app starts."""
-        # Show game selector immediately
-        self.show_game_selector()
-
-    def show_game_selector(self) -> None:
-        """Show the game selection screen."""
-        selector = GameSelectorScreen(self.library, self.save_manager)
-
-        def handle_selection(result):
-            """Handle game selection."""
-            if result is None:
-                # User quit
-                self.exit()
-            else:
-                self.launch_game(result["game_id"], result["resume"])
-
-        self.push_screen(selector, handle_selection)
+        _set_tmux_game_keys(self.config, ())
+        _set_tmux_current_game(self.config, None)
+        self.push_screen(self.menu_screen)
 
     def launch_game(self, game_id: str, resume: bool = False) -> None:
         """
@@ -186,99 +187,88 @@ class GameRunnerApp(App):
             game_id: Game identifier
             resume: Whether to resume from save
         """
-        # Exit the runner app and return the game selection
-        self.exit(result={"game_id": game_id, "resume": resume})
+        if self.current_game is not None:
+            if self.current_game.state == GameState.QUIT:
+                self._cleanup_after_game()
+            else:
+                return
 
-
-def main():
-    """Entry point for game runner."""
-    while True:
-        config = Config.load()
-        library = GameLibrary()
-        save_manager = SaveStateManager()
-
-        _set_tmux_game_keys(config, ())
-        _set_tmux_current_game(config, None)
-
-        # Show game selector
-        app = GameRunnerApp(config)
-        result = app.run()
-
-        # If user quit, exit the loop
-        if result is None:
-            _set_tmux_current_game(config, None)
-            break
-
-        # Otherwise, run the selected game
-        game_id = result["game_id"]
-        resume = result["resume"]
-
-        # Get game instance
-        game = library.get_game(game_id)
-
+        game = self.library.get_game(game_id)
         if not game:
-            print(f"Error: Could not load game {game_id}")
-            continue
+            self.notify(f"Error: Could not load game {game_id}", severity="error")
+            return
 
-        # Pass config to game for dynamic key bindings
-        if hasattr(game, 'set_config'):
-            game.set_config(config)
+        if hasattr(game, "set_config"):
+            game.set_config(self.config)
 
-        _set_tmux_game_keys(config, game.key_bindings)
-        _set_tmux_current_game(config, game.metadata.name)
-
-        # Load save state if resuming
-        if resume and save_manager.has_save(game_id):
-            save_state = save_manager.load_game(game_id)
+        if resume and self.save_manager.has_save(game_id):
+            save_state = self.save_manager.load_game(game_id)
             if save_state:
                 try:
                     game.load_save_state(save_state)
                 except Exception as e:
-                    print(f"Warning: Could not load save: {e}")
+                    self.notify(f"Warning: Could not load save: {e}", severity="warning")
 
-        # Track start time
-        game_start_time = time.time()
+        self.current_game = game
+        self.current_game_start_time = time.time()
 
-        # Start window focus monitor for auto-pause/resume
-        focus_monitor = WindowFocusMonitor(config, game, game_window_index=1)
-        focus_monitor.start()
+        _set_tmux_game_keys(self.config, game.key_bindings)
+        _set_tmux_current_game(self.config, game.metadata.name)
 
-        # Run the game (blocking)
-        try:
-            game.run()
+        self.focus_monitor = WindowFocusMonitor(self.config, game, game_window_index=1)
+        self.focus_monitor.start()
 
-            # Game finished, update stats
-            play_time = int(time.time() - game_start_time)
-            score = game.score
+        screen = game.create_screen()
+        self.push_screen(screen, self._handle_game_exit)
 
-            library.update_play_stats(
-                game.metadata.id,
-                play_time,
-                score
-            )
+    def _cleanup_after_game(self) -> None:
+        """Handle game cleanup after a game screen is dismissed."""
+        if not self.current_game:
+            return
 
-            # Save state if paused
-            if game.state == GameState.PAUSED:
-                save_state = game.get_save_state()
-                save_manager.save_game(
-                    game.metadata.id,
-                    save_state
-                )
-            elif game.state == GameState.GAME_OVER:
-                # Clear save on game over
-                save_manager.delete_save(game.metadata.id)
+        if self.focus_monitor:
+            self.focus_monitor.stop()
+            self.focus_monitor = None
 
-        except Exception as e:
-            print(f"Error running game: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            # Stop focus monitor
-            focus_monitor.stop()
-            _set_tmux_game_keys(config, ())
-            _set_tmux_current_game(config, None)
+        _set_tmux_game_keys(self.config, ())
+        _set_tmux_current_game(self.config, None)
 
-        # Loop back to show selector again
+        play_time = 0
+        if self.current_game_start_time is not None:
+            play_time = int(time.time() - self.current_game_start_time)
+
+        game = self.current_game
+
+        self.library.update_play_stats(
+            game.metadata.id,
+            play_time,
+            game.score,
+        )
+
+        if game.state == GameState.PAUSED:
+            save_state = game.get_save_state()
+            self.save_manager.save_game(game.metadata.id, save_state)
+        elif game.state == GameState.GAME_OVER:
+            self.save_manager.delete_save(game.metadata.id)
+
+        self.menu_screen.refresh_games()
+        self.current_game = None
+        self.current_game_start_time = None
+
+    def _handle_game_exit(self, _result) -> None:
+        """Handle game cleanup when a game screen is dismissed."""
+        self._cleanup_after_game()
+
+
+def main():
+    """Entry point for game runner."""
+    config = Config.load()
+    app = GameRunnerApp(config)
+    try:
+        app.run()
+    finally:
+        _set_tmux_game_keys(config, ())
+        _set_tmux_current_game(config, None)
 
 
 if __name__ == "__main__":

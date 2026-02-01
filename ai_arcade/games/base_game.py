@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Tuple
 
+from textual.screen import Screen
+
 
 class GameState(Enum):
     """Possible states for a game."""
@@ -56,6 +58,16 @@ class BaseGame(ABC):
 
         This is the main game loop. It should block until the game exits.
         The game should handle its own rendering and input using Textual.
+        """
+        pass
+
+    @abstractmethod
+    def create_screen(self) -> Screen:
+        """
+        Return a Textual Screen for rendering the game in the hub app.
+
+        Returns:
+            Screen instance for this game.
         """
         pass
 
