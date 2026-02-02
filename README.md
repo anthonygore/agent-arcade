@@ -36,17 +36,17 @@ pipx install agent-arcade
 
 ## Quick Start
 
-1. **Launch Agent Arcade**:
+1. Launch Agent Arcade:
    ```bash
    agent-arcade
    ```
 
-2. **Select your AI agent**
+2. Select your AI agent
 
-3. **Switch between agent/game view**:
+3. Switch between agent/game view:
    - `Ctrl+Space`
 
-4. **Play games while AI thinks!** 🎮
+4. Give your agent tasks and then play games while you wait!
 
 ## Supported AI Agents
 
@@ -58,11 +58,17 @@ Want to add more agents? Submit a PR.
 ## Games
 
 ### Snake
-Classic arcade action. Eat food, grow longer, avoid walls and yourself!
-- **Controls**: Arrow keys to move, P to pause, Q to quit
-- **Goal**: Get the highest score possible
 
-**More games coming soon!**
+Classic Snake game. Eat food, grow longer, avoid walls and yourself!
+
+### In progress games
+
+More games are coming soon. I'm currently working on:
+
+- 2048
+- Minesweeper
+- Pong
+- Sudoku
 
 ## License
 
@@ -72,7 +78,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - Built with [Textual](https://textual.textualize.io/) - Modern Python TUI framework
 - Powered by [tmux](https://github.com/tmux/tmux) - Terminal multiplexer
-- Inspired by the need to stay productive while AI agents think
 
 ## Contributing
 
