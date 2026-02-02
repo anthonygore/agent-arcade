@@ -1,67 +1,38 @@
 # Agent Arcade
 
-**Play fun arcade games while waiting on AI agent tasks!**
+**Play fun arcade games while waiting on AI agent tasks.**
 
-Stop context-switching to your phone while waiting for Claude Code or Codex to finish. Stay in the terminal, stay productive.
-
----
+Stop context-switching to your phone or social media while waiting for Claude Code or Codex to finish. Stay in the terminal, stay productive!
 
 ## Installation
 
-### Step 1: Install Agent Arcade
-
-**Via pipx (Recommended)** - installs in isolated environment:
+### macOS
 
 ```bash
-# Install pipx if needed
-brew install pipx  # macOS
-# or: python3 -m pip install --user pipx
-
-# Install agent-arcade
+brew install tmux pipx
 pipx install agent-arcade
 ```
 
-**Updating**: `pipx upgrade agent-arcade`
-
-**Via pip:**
+### Linux
 
 ```bash
-pip install agent-arcade
-```
-
-**Updating**: `pip install --upgrade agent-arcade`
-
-### Step 2: Install tmux (Required)
-
-Agent Arcade requires tmux to create the dual-pane interface:
-
-```bash
-# macOS
-brew install tmux
-
 # Ubuntu/Debian
 sudo apt-get install tmux
+pipx install agent-arcade
 
 # RedHat/CentOS
 sudo yum install tmux
+pipx install agent-arcade
 ```
 
-### Step 3: Run Agent Arcade
+### Windows (WSL)
 
 ```bash
-agent-arcade
+# Install WSL first: wsl --install
+# Then in your WSL terminal:
+sudo apt-get install tmux
+pipx install agent-arcade
 ```
-
-### From Source (for development)
-
-```bash
-git clone https://github.com/anthonygore/agent-arcade
-cd agent-arcade
-poetry install
-poetry run agent-arcade
-```
-
----
 
 ## Quick Start
 
@@ -70,25 +41,12 @@ poetry run agent-arcade
    agent-arcade
    ```
 
-2. **Select your AI agent** from the menu (or choose "Games Only")
+2. **Select your AI agent**
 
-3. **Switch between windows**:
-   - `Ctrl+Space` - Toggle between AI and Games windows
+3. **Switch between agent/game view**:
+   - `Ctrl+Space`
 
 4. **Play games while AI thinks!** 🎮
-
----
-
-## Built-in Games
-
-### Snake
-Classic arcade action. Eat food, grow longer, avoid walls and yourself!
-- **Controls**: Arrow keys to move, P to pause, Q to quit
-- **Goal**: Get the highest score possible
-
-**More games coming soon!**
-
----
 
 ## Supported AI Agents
 
@@ -97,13 +55,18 @@ Classic arcade action. Eat food, grow longer, avoid walls and yourself!
 
 Want to add more agents? Submit a PR.
 
----
+## Games
+
+### Snake
+Classic arcade action. Eat food, grow longer, avoid walls and yourself!
+- **Controls**: Arrow keys to move, P to pause, Q to quit
+- **Goal**: Get the highest score possible
+
+**More games coming soon!**
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
----
 
 ## Credits
 
@@ -111,17 +74,26 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - Powered by [tmux](https://github.com/tmux/tmux) - Terminal multiplexer
 - Inspired by the need to stay productive while AI agents think
 
----
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
----
+### Development Setup
+
+```bash
+# Install Poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Clone and setup
+git clone https://github.com/anthonygore/agent-arcade
+cd agent-arcade
+poetry install
+
+# Run in dev mode (uses ~/.agent-arcade-dev for data)
+poetry run agent-arcade
+```
 
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/anthonygore/agent-arcade/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/anthonygore/agent-arcade/discussions)
-
----

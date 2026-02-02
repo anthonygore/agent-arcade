@@ -51,7 +51,11 @@ dmypy.json
 
 # Project specific
 *.log
-.ai-arcade/
 
 # Poetry
 poetry.lock
+
+DEBUG.md
+DISTRIBUTION.md
+
+.claude/settings.local.json
