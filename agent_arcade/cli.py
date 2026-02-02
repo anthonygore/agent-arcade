@@ -3,6 +3,7 @@
 import atexit
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -13,6 +14,53 @@ from .agents import create_agent
 from .ai_monitor import AIMonitor
 from .config import Config
 from .tmux_manager import TmuxManager
+
+
+def check_version():
+    """Check if agent-arcade is up to date."""
+    # Allow skipping check for development
+    if os.environ.get("SKIP_VERSION_CHECK"):
+        return
+
+    try:
+        import json
+        from urllib.request import urlopen
+
+        # Get current version
+        from importlib.metadata import version as get_version
+        current_version = get_version("agent-arcade")
+
+        # Check PyPI for latest version (with timeout)
+        with urlopen("https://pypi.org/pypi/agent-arcade/json", timeout=2) as response:
+            data = json.loads(response.read())
+            latest_version = data["info"]["version"]
+
+        # Compare versions (simple string comparison works for semantic versions)
+        if latest_version != current_version and latest_version > current_version:
+            print("⚠️  Agent Arcade is outdated!")
+            print(f"   Current: {current_version}")
+            print(f"   Latest:  {latest_version}")
+            print("   Please update to get the latest games:")
+
+            # Detect installation method and suggest appropriate command
+            result = subprocess.run(
+                ["pipx", "list"],
+                capture_output=True,
+                timeout=1,
+                check=False,
+            )
+
+            if b"agent-arcade" in result.stdout:
+                print("   pipx upgrade agent-arcade")
+            else:
+                print("   pip install --upgrade agent-arcade")
+
+            print()
+            sys.exit(1)
+
+    except Exception:
+        # Network error, PyPI unavailable, or other issue - skip check
+        pass
 
 
 def print_help(config: Config):
@@ -33,10 +81,40 @@ def print_help(config: Config):
     print("\n".join(usage))
 
 
+def check_tmux_installed():
+    """Check if tmux is installed."""
+    try:
+        result = subprocess.run(
+            ["tmux", "-V"],
+            capture_output=True,
+            timeout=2,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise FileNotFoundError
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        print("❌ Error: tmux is not installed")
+        print()
+        print("Agent Arcade requires tmux to run.")
+        print("Please install tmux first:")
+        print()
+        print("  macOS:         brew install tmux")
+        print("  Ubuntu/Debian: sudo apt-get install tmux")
+        print("  RedHat/CentOS: sudo yum install tmux")
+        print()
+        sys.exit(1)
+
+
 def main():
     """Main entry point for agent-arcade command."""
     # Set terminal title
     print("\033]0;Agent Arcade\007", end="", flush=True)
+
+    # Check tmux is installed
+    check_tmux_installed()
+
+    # Check for updates
+    check_version()
 
     try:
         # Load configuration

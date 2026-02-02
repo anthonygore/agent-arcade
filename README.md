@@ -1,49 +1,58 @@
-# 🎮 Agent Arcade
+# Agent Arcade
 
-**Play terminal games while AI coding agents think.**
+**Play fun arcade games while waiting on AI agent tasks!**
 
-Stop context-switching to your phone while waiting for Claude Code, Aider, or other AI tools. Stay in the terminal, stay productive.
-
----
-
-## ✨ Features
-
-- 🤖 **Multi-Agent Support**: Works with Claude Code, Aider, Cursor, and more
-- 🎮 **Built-in Games**: Snake and more puzzle games
-- 🔄 **Save States**: Pause and resume games anytime
-- 📊 **Smart Monitoring**: Detects when AI is ready for input
-- ⌨️ **Seamless Switching**: Quick keybindings to switch between AI and games
-- 🎯 **Zero Config**: Works out of the box with sensible defaults
+Stop context-switching to your phone while waiting for Claude Code or Codex to finish. Stay in the terminal, stay productive.
 
 ---
 
-## 📦 Installation
+## Installation
 
-### Prerequisites
+### Step 1: Install Agent Arcade
 
-- **Python 3.9 or higher**
-- **tmux** - Install with:
-  - macOS: `brew install tmux`
-  - Linux (Debian/Ubuntu): `sudo apt-get install tmux`
-  - Linux (RedHat/CentOS): `sudo yum install tmux`
+**Via pipx (Recommended)** - installs in isolated environment:
 
-### Via pip (Recommended)
+```bash
+# Install pipx if needed
+brew install pipx  # macOS
+# or: python3 -m pip install --user pipx
+
+# Install agent-arcade
+pipx install agent-arcade
+```
+
+**Updating**: `pipx upgrade agent-arcade`
+
+**Via pip:**
 
 ```bash
 pip install agent-arcade
-agent-arcade
 ```
 
-### From Source
+**Updating**: `pip install --upgrade agent-arcade`
+
+### Step 2: Install tmux (Required)
+
+Agent Arcade requires tmux to create the dual-pane interface:
 
 ```bash
-git clone https://github.com/anthonygore/agent-arcade
-cd agent-arcade
-pip install -e .
+# macOS
+brew install tmux
+
+# Ubuntu/Debian
+sudo apt-get install tmux
+
+# RedHat/CentOS
+sudo yum install tmux
+```
+
+### Step 3: Run Agent Arcade
+
+```bash
 agent-arcade
 ```
 
-### With Poetry (for development)
+### From Source (for development)
 
 ```bash
 git clone https://github.com/anthonygore/agent-arcade
@@ -54,7 +63,7 @@ poetry run agent-arcade
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 1. **Launch Agent Arcade**:
    ```bash
@@ -70,178 +79,33 @@ poetry run agent-arcade
 
 ---
 
-## 🎮 Built-in Games
+## Built-in Games
 
-### Snake 🐍
+### Snake
 Classic arcade action. Eat food, grow longer, avoid walls and yourself!
 - **Controls**: Arrow keys to move, P to pause, Q to quit
 - **Goal**: Get the highest score possible
 
----
-
-## 🤖 Supported AI Agents
-
-| Agent | Status | Command |
-|-------|--------|---------|
-| Claude Code | ✅ Fully Supported | `claude` |
-| Aider | ✅ Fully Supported | `aider` |
-| Cursor AI | ✅ Supported | `cursor-cli` |
-| Generic | ✅ Fallback | Any CLI tool |
+**More games coming soon!**
 
 ---
 
-## ⚙️ Configuration
+## Supported AI Agents
 
-Configuration file location: `~/.agent-arcade/config.yaml`
+- Claude Code
+- Cursor
 
-The configuration file is created automatically on first run with sensible defaults.
-
-### Example Configuration
-
-```yaml
-# AI Agents
-agents:
-  claude_code:
-    name: "Claude Code"
-    command: "claude"
-    ready_patterns:
-      - "What would you like to do\\?"
-      - "^> "
-
-# tmux Settings
-tmux:
-  session_name: "agent-arcade"
-  mouse_mode: true
-  status_bar: true
-
-# Keybindings
-keybindings:
-  toggle_window: "C-Space"  # Ctrl+Space to toggle between windows
-
-# Notifications
-notifications:
-  enabled: true
-  visual: true
-  message: "🤖 AI Ready"
-```
-
-### Adding Custom AI Agents
-
-To add a custom AI agent, edit `~/.agent-arcade/config.yaml`:
-
-```yaml
-agents:
-  my_agent:
-    name: "My AI Tool"
-    command: "my-ai-cli"
-    args: []
-    ready_patterns:
-      - "Ready>"  # Regex pattern to detect when agent is ready
-```
+Want to add more agents? Submit a PR.
 
 ---
 
-## 🎯 How It Works
-
-1. **Dual-Window Setup**: Agent Arcade creates a tmux session with two full-screen windows:
-   - **Window 0 (AI Agent)**: Your AI coding agent runs here with full terminal space
-   - **Window 1 (Games)**: Game runner with full terminal space
-
-2. **Smart Monitoring**: Agent Arcade watches the AI agent's output for:
-   - Configured regex patterns (e.g., prompt indicators)
-   - Inactivity timeout (no output for N seconds = ready)
-
-3. **Notifications**: When the AI is ready for input, you get a notification in the game window
-
-4. **Seamless Switching**: Use configured keybindings to instantly switch between windows - both stay running with full state preserved
-
----
-
-## 📁 Project Structure
-
-```
-~/.agent-arcade/
-├── config.yaml          # Main configuration
-├── games_metadata.json  # Game stats and metadata
-└── save_states/         # Saved game states
-    └── snake.json
-```
-
----
-
-## 🐛 Troubleshooting
-
-### tmux not found
-
-**Error**: `tmux is not installed`
-
-**Solution**: Install tmux:
-```bash
-# macOS
-brew install tmux
-
-# Linux (Debian/Ubuntu)
-sudo apt-get install tmux
-
-# Linux (RedHat/CentOS)
-sudo yum install tmux
-```
-
-### No AI agents detected
-
-**Issue**: Launcher shows "No AI agents detected"
-
-**Solution**: Install an AI CLI tool:
-```bash
-# Claude Code
-pip install claude-code
-
-# Aider
-pip install aider-chat
-```
-
-### Games are slow or laggy
-
-**Issue**: Game performance is poor
-
-**Solution**:
-- Increase terminal font size
-- Close other applications
-- Check terminal emulator performance settings
-
----
-
-## 🛠️ Development
-
-### Running Tests
-
-```bash
-poetry install
-poetry run pytest
-```
-
-### Code Formatting
-
-```bash
-poetry run black agent_arcade/
-poetry run ruff check agent_arcade/
-```
-
-### Type Checking
-
-```bash
-poetry run mypy agent_arcade/
-```
-
----
-
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Credits
+## Credits
 
 - Built with [Textual](https://textual.textualize.io/) - Modern Python TUI framework
 - Powered by [tmux](https://github.com/tmux/tmux) - Terminal multiplexer
@@ -249,25 +113,15 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Adding New Games
-
-1. Create a new game class in `agent_arcade/games/`
-2. Inherit from `BaseGame` and implement required methods
-3. Add game metadata
-4. Test your game
-5. Submit a PR!
-
 ---
 
-## 📮 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/anthonygore/agent-arcade/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/anthonygore/agent-arcade/discussions)
 
 ---
-
-Made with ❤️ by developers, for developers.

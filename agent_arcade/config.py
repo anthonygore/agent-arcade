@@ -1,8 +1,42 @@
 """Configuration management for Agent Arcade."""
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+def get_data_dir() -> str:
+    """
+    Get the data directory name for Agent Arcade.
+
+    Returns ".agent-arcade-dev" in development mode, ".agent-arcade" otherwise.
+    Development mode is detected by:
+    - AGENT_ARCADE_DEV environment variable
+    - Running from Poetry environment (POETRY_ACTIVE or in project directory)
+    """
+    # Explicit dev mode flag
+    if os.environ.get("AGENT_ARCADE_DEV"):
+        return ".agent-arcade-dev"
+
+    # Check if running from Poetry
+    if os.environ.get("POETRY_ACTIVE"):
+        return ".agent-arcade-dev"
+
+    # Check if running from project directory with pyproject.toml
+    project_root = Path(__file__).parent.parent
+    if (project_root / "pyproject.toml").exists():
+        # Check if we're running from editable install
+        try:
+            from importlib.metadata import distribution
+            dist = distribution("agent-arcade")
+            # Editable installs have direct_url.json
+            if hasattr(dist, '_path') and dist._path and 'site-packages' not in str(dist._path):
+                return ".agent-arcade-dev"
+        except Exception:
+            pass
+
+    return ".agent-arcade"
 
 
 @dataclass
@@ -40,7 +74,7 @@ class MonitoringConfig:
 class GamesConfig:
     """Configuration for games."""
 
-    metadata_file: str = "~/.agent-arcade/games_metadata.json"
+    metadata_file: str = field(default_factory=lambda: f"~/{get_data_dir()}/games_metadata.json")
 
 
 @dataclass
@@ -120,7 +154,7 @@ class Config:
                 "buffer_lines": 50
             },
             "games": {
-                "metadata_file": "~/.agent-arcade/games_metadata.json",
+                "metadata_file": f"~/{get_data_dir()}/games_metadata.json",
             },
             "notifications": {
                 "enabled": True,
@@ -199,7 +233,7 @@ class Config:
         # Parse games config
         games_data = data.get("games", {})
         games = GamesConfig(
-            metadata_file=games_data.get("metadata_file", "~/.agent-arcade/games_metadata.json")
+            metadata_file=games_data.get("metadata_file", f"~/{get_data_dir()}/games_metadata.json")
         )
 
         # Parse notifications config

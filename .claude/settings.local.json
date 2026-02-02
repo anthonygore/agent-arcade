@@ -28,7 +28,8 @@
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:codefinity.com)",
       "Bash(timeout 5 poetry run python:*)",
-      "Bash(poetry run agent-arcade:*)"
+      "Bash(poetry run agent-arcade:*)",
+      "Bash(find:*)"
     ]
   },
   "hooks": {

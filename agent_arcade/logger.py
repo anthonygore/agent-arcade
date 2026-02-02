@@ -15,8 +15,10 @@ Usage:
 import logging
 from pathlib import Path
 
+from .config import get_data_dir
+
 # Create logs directory in user's home
-LOG_DIR = Path.home() / ".agent-arcade" / "logs"
+LOG_DIR = Path.home() / get_data_dir() / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = LOG_DIR / "debug.log"

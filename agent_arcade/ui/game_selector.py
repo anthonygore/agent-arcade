@@ -2,7 +2,7 @@
 
 from textual.widgets import DataTable
 from rich.text import Text
-
+from .. import __version__
 from .base_selector import BaseSelectorScreen
 
 
@@ -26,9 +26,9 @@ class GameSelectorScreen(BaseSelectorScreen):
     def get_instructions(self) -> str:
         """Return instructions text."""
         return (
-            "🤖 🎮 AGENT ARCADE\n\n"
-            "Play fun arcade games while you wait on your AI agent.\n\n"
-            "Tip: games automatically pause when you switch back to your Agent."
+            f"🤖 AGENT ARCADE v{__version__}\n\n"
+            "Play fun arcade games while waiting on AI agent tasks!\n\n"
+            "Tip: Press Ctrl+Space to switch between agent and game view."
         )
 
     def get_table_columns(self) -> tuple:

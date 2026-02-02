@@ -37,6 +37,7 @@ class BaseSelectorScreen(Screen):
         width: 2fr;
         height: 100%;
         padding-right: 1;
+        layout: vertical;
     }
 
     #instructions-column {
@@ -49,9 +50,11 @@ class BaseSelectorScreen(Screen):
     }
 
     #item-table {
-        height: 100%;
+        height: auto;
         width: 2fr;
+        padding-bottom: 2;
     }
+
     """
 
     @property

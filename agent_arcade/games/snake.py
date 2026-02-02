@@ -132,7 +132,7 @@ class SnakeScreen(Screen):
         super().__init__()
         self.game_ref = game
         self.score = game.score
-        self.game_state = GameState.PLAYING
+        self.game_state = GameState.PAUSED
 
         # Game board settings
         self.board_width = 40
@@ -147,7 +147,7 @@ class SnakeScreen(Screen):
         self.food = self._spawn_food()
 
         # Game state
-        self.is_paused = False
+        self.is_paused = True
         self.game_over = False
         self.game_over_reason = ""
 

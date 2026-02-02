@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
+from .config import get_data_dir
 from .games.base_game import BaseGame, GameMetadata
 
 
@@ -18,10 +19,10 @@ class GameLibrary:
         Initialize game library.
 
         Args:
-            metadata_path: Path to metadata JSON. Defaults to ~/.agent-arcade/games_metadata.json
+            metadata_path: Path to metadata JSON. Defaults to ~/.agent-arcade/games_metadata.json (or ~/.agent-arcade-dev in dev mode)
         """
         if metadata_path is None:
-            metadata_path = Path.home() / ".agent-arcade" / "games_metadata.json"
+            metadata_path = Path.home() / get_data_dir() / "games_metadata.json"
 
         self.metadata_path = Path(metadata_path).expanduser()
         self.metadata: Dict[str, Any] = self._load_metadata()

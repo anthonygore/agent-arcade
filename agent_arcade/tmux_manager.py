@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+from .logger import logger
 
 class TmuxManager:
     """Manages tmux session for Agent Arcade."""
@@ -104,6 +105,7 @@ class TmuxManager:
         # Enable mouse mode if configured
         if self.config.tmux.mouse_mode:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "on"])
+            self._configure_mouse_bindings()
         else:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "off"])
 
@@ -143,6 +145,7 @@ class TmuxManager:
             self._send_tmux_cmd([
                 "set-option", "-t", self.session_name, "mouse", "on"
             ])
+            self._configure_mouse_bindings()
 
         # Bind Ctrl+x to exit application (kill session)
         # Using -n flag to bind in root table (no prefix needed)
@@ -461,6 +464,9 @@ class TmuxManager:
         selected_agent = self.get_session_option("@selected-agent")
         agent_is_selected = bool(selected_agent)
 
+        # Ensure mouse wheel scrolls tmux buffer in Codex TUI
+        self._apply_mouse_mode(selected_agent)
+
         # Determine agent status text and color
         if not agent_is_selected:
             agent_status = "🤖 No agent selected"
@@ -488,7 +494,7 @@ class TmuxManager:
 
         # Build status bar with arrows and current state
         # Top line - Agent status with arrow
-        agent_arrow = "#{?#{==:#{window_index},0},➡ ,  }"
+        agent_arrow = "#{?#{==:#{window_index},0}, ► ,   }"
         game_keys = "#{?@game-keys,#{@game-keys},}"
 
         top_format = (
@@ -500,7 +506,7 @@ class TmuxManager:
         )
 
         # Bottom line - Game status with arrow
-        game_arrow = "#{?#{==:#{window_index},1},➡ ,  }"
+        game_arrow = "#{?#{==:#{window_index},1}, ► ,   }"
         game_text = "#{?@current-game,🎮 Playing: #{@current-game},🎮 No game selected}"
         global_bindings = "Ctrl+Space: Switch view | Ctrl+X: Exit"
 
@@ -530,7 +536,64 @@ class TmuxManager:
         Args:
             args: Command arguments
         """
-        subprocess.run(["tmux"] + args, check=True)
+        try:
+            result = subprocess.run(
+                ["tmux"] + args,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.stdout:
+                logger.debug("tmux stdout: %s", result.stdout.strip())
+            if result.stderr:
+                logger.debug("tmux stderr: %s", result.stderr.strip())
+        except subprocess.CalledProcessError as exc:
+            logger.error("tmux command failed: %s", ["tmux"] + args)
+            if exc.stdout:
+                logger.error("tmux stdout: %s", exc.stdout.strip())
+            if exc.stderr:
+                logger.error("tmux stderr: %s", exc.stderr.strip())
+            raise
+
+    def _configure_mouse_bindings(self) -> None:
+        """Configure mouse bindings so scroll selects tmux buffer, not app input."""
+        # Scroll wheel enters copy-mode (if needed) and scrolls the pane.
+        self._send_tmux_cmd([
+            "bind-key", "-n", "WheelUpPane",
+            "if-shell", "-F", "#{pane_in_mode}",
+            "send-keys -X scroll-up",
+            "copy-mode -e; send-keys -X scroll-up",
+        ])
+        self._send_tmux_cmd([
+            "bind-key", "-n", "WheelDownPane",
+            "if-shell", "-F", "#{pane_in_mode}",
+            "send-keys -X scroll-down",
+            "copy-mode -e; send-keys -X scroll-down",
+        ])
+        # Mouse drag selects text in copy-mode.
+        self._send_tmux_cmd([
+            "bind-key", "-n", "MouseDrag1Pane",
+            "if-shell", "-F", "#{pane_in_mode}",
+            "send-keys -X drag-to-selection",
+            "copy-mode -e; send-keys -X begin-selection; send-keys -X drag-to-selection",
+        ])
+
+    def _apply_mouse_mode(self, selected_agent: Optional[str]) -> None:
+        """
+        Set mouse mode based on selected agent and config.
+
+        Codex's TUI scrolls input history on mouse wheel, so keep tmux mouse on
+        to intercept wheel events and scroll the pane instead.
+        """
+        if selected_agent == "codex":
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "on"])
+            self._configure_mouse_bindings()
+            return
+
+        if self.config.tmux.mouse_mode:
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "on"])
+        else:
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "mouse", "off"])
 
     def get_session_option(self, option: str) -> Optional[str]:
         """
