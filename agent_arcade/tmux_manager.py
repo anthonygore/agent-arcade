@@ -114,33 +114,17 @@ class TmuxManager:
             # Set status bar to fill width
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "status-left-length", "100"])
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "status-right-length", "100"])
-            # Hide window list immediately to prevent flash
+            # Hide window list
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "window-status-current-format", ""])
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "window-status-format", ""])
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "window-status-separator", ""])
-            # Key bindings bar (top line)
-            self._send_tmux_cmd(["set-option", "-t", self.session_name, "@game-keys", ""])
-            keybar_left = "#{?@game-keys, #{@game-keys} ,}"
-            keybar_right = " Ctrl+Space: Switch View | Ctrl+X: Exit "
-            keybar_format = (
-                "#[bg=colour238,fg=white,bold,align=left]"
-                f"{keybar_left}"
-                "#[align=right]"
-                f"{keybar_right}"
-                "#[default]"
-            )
-            self._send_tmux_cmd([
-                "set-option",
-                "-t",
-                self.session_name,
-                "status-format[0]",
-                keybar_format,
-            ])
-            # Initialize status bar with dynamic content
-            # Status bar will read @selected-agent variable directly
+            # Initialize tmux variables
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "@selected-agent", ""])
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "@current-game", ""])
-            self._setup_dynamic_status_bar()
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "@game-keys", ""])
+            self._send_tmux_cmd(["set-option", "-t", self.session_name, "@agent-status", "🤖 No agent selected"])
+            # Set up initial status bar
+            self.update_status_bar()
         else:
             self._send_tmux_cmd(["set-option", "-t", self.session_name, "status", "off"])
 
@@ -468,11 +452,6 @@ class TmuxManager:
         self.current_game = game_name
         self.update_status_bar()
 
-    def _setup_dynamic_status_bar(self) -> None:
-        """Set up initial status bar - will be updated by update_status_bar()."""
-        # Just call update_status_bar to set initial state
-        self.update_status_bar()
-
     def update_status_bar(self) -> None:
         """Update the status bar with current state."""
         if not self.config.tmux.status_bar:
@@ -482,64 +461,66 @@ class TmuxManager:
         selected_agent = self.get_session_option("@selected-agent")
         agent_is_selected = bool(selected_agent)
 
-        # Three states: no agent, idle, or active
+        # Determine agent status text and color
         if not agent_is_selected:
-            # No agent selected yet (still in menu)
-            status_color = "cyan"
             agent_status = "🤖 No agent selected"
+            status_color = "cyan"
         elif self.agent_state_idle:
-            # idle = user typing or agent waiting
-            status_color = "green"
             agent_status = "🤖 Agent idle"
+            status_color = "green"
         else:
-            # active = agent thinking or generating
-            status_color = "yellow"
             agent_status = "🤖 Agent working..."
+            status_color = "orange"
 
-        # Game status
-        if self.current_game:
-            game_status = f"🎮 Playing: {self.current_game}"
-        else:
-            game_status = "🎮 No game selected"
-
-        # Build status bar components
-        # Left: Agent status
-        status_left = f" {agent_status} "
-
-        # Right: Game status
-        status_right = f" {game_status} "
-
-        # Set status bar with colored background
+        # Store agent status in tmux variable for dynamic display
         self._send_tmux_cmd([
-            "set-option", "-t", self.session_name, "status-style",
-            f"bg={status_color},fg=black,bold"
+            "set-option", "-t", self.session_name,
+            "@agent-status",
+            agent_status,
         ])
-        status_format = (
-            "#[align=left]"
-            f"{status_left}"
+
+        # Update status bar background color only
+        self._send_tmux_cmd([
+            "set-option", "-t", self.session_name,
+            "status-style",
+            f"bg={status_color},fg=black",
+        ])
+
+        # Build status bar with arrows and current state
+        # Top line - Agent status with arrow
+        agent_arrow = "#{?#{==:#{window_index},0},➡ ,  }"
+        game_keys = "#{?@game-keys,#{@game-keys},}"
+
+        top_format = (
+            "#[fg=black,bold,align=left]"
+            f"{agent_arrow}#{{@agent-status}}"
             "#[align=right]"
-            f"{status_right}"
+            f"{game_keys}"
+            "#[default]"
         )
-        self._send_tmux_cmd([
-            "set-option",
-            "-t",
-            self.session_name,
-            "status-format[1]",
-            status_format,
-        ])
 
-        # Hide window list in center
+        # Bottom line - Game status with arrow
+        game_arrow = "#{?#{==:#{window_index},1},➡ ,  }"
+        game_text = "#{?@current-game,🎮 Playing: #{@current-game},🎮 No game selected}"
+        global_bindings = "Ctrl+Space: Switch view | Ctrl+X: Exit"
+
+        bottom_format = (
+            "#[fg=black,bold,align=left]"
+            f"{game_arrow}{game_text}"
+            "#[align=right]"
+            f"{global_bindings}"
+            "#[default]"
+        )
+
         self._send_tmux_cmd([
-            "set-option", "-t", self.session_name, "window-status-current-format",
-            ""
+            "set-option", "-t", self.session_name,
+            "status-format[0]",
+            top_format,
         ])
         self._send_tmux_cmd([
-            "set-option", "-t", self.session_name, "window-status-format",
-            ""
-        ])
-        self._send_tmux_cmd([
-            "set-option", "-t", self.session_name, "window-status-separator",
-            ""
+            "set-option", "-t", self.session_name,
+            "status-format[1]",
+            bottom_format,
         ])
 
     def _send_tmux_cmd(self, args: List[str]) -> None:
