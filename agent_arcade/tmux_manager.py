@@ -3,6 +3,7 @@
 import platform
 import shlex
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -57,7 +58,7 @@ class TmuxManager:
         Get the correct python command for running a module.
 
         In dev mode: uses 'poetry run python -m module'
-        In production: uses 'python -m module'
+        In production: uses the same Python interpreter that's running this code
 
         Args:
             module: Python module to run (e.g., 'agent_arcade.game_runner')
@@ -69,7 +70,9 @@ class TmuxManager:
         if is_dev:
             return f"export PATH=\"/Users/anthonygore/.local/bin:$PATH\" && poetry run python -m {module}"
         else:
-            return f"python -m {module}"
+            # Use the same Python interpreter that's running this code
+            python_exe = shlex.quote(sys.executable)
+            return f"{python_exe} -m {module}"
 
     def _is_tmux_available(self) -> bool:
         """
