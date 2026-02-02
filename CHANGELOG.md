@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-02-02
+
+### Fixed
+- Production installations now work correctly (removed hardcoded poetry commands)
+- App properly detects dev vs production mode and uses appropriate python commands
+
 ## [1.1.0] - 2025-02-02
 
 ### Added
@@ -29,5 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform support (macOS, Linux, Windows via WSL)
 - Automatic version checking on startup
 
+[1.1.1]: https://github.com/anthonygore/agent-arcade/releases/tag/v1.1.1
 [1.1.0]: https://github.com/anthonygore/agent-arcade/releases/tag/v1.1.0
 [1.0.0]: https://github.com/anthonygore/agent-arcade/releases/tag/v1.0.0

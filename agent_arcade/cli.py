@@ -40,7 +40,7 @@ def check_version():
             print("⚠️  Agent Arcade is outdated!")
             print(f"   Current: {current_version}")
             print(f"   Latest:  {latest_version}")
-            print("   Please update to get the latest games:")
+            print("   Please upgrade before running again:")
 
             # Detect installation method and suggest appropriate command
             result = subprocess.run(

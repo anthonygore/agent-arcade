@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+from .config import get_data_dir
 from .logger import logger
 
 class TmuxManager:
@@ -50,6 +51,25 @@ class TmuxManager:
                 f"{install_hint}\n"
                 "After installing tmux, re-run agent-arcade."
             )
+
+    def _get_python_cmd(self, module: str) -> str:
+        """
+        Get the correct python command for running a module.
+
+        In dev mode: uses 'poetry run python -m module'
+        In production: uses 'python -m module'
+
+        Args:
+            module: Python module to run (e.g., 'agent_arcade.game_runner')
+
+        Returns:
+            Command string to execute the module
+        """
+        is_dev = get_data_dir() == ".agent-arcade-dev"
+        if is_dev:
+            return f"export PATH=\"/Users/anthonygore/.local/bin:$PATH\" && poetry run python -m {module}"
+        else:
+            return f"python -m {module}"
 
     def _is_tmux_available(self) -> bool:
         """
@@ -190,8 +210,7 @@ class TmuxManager:
 
     def launch_game_runner(self) -> None:
         """Launch game runner in game window."""
-        # Use Poetry to run the game runner module in the virtual environment
-        runner_cmd = "export PATH=\"/Users/anthonygore/.local/bin:$PATH\" && poetry run python -m agent_arcade.game_runner"
+        runner_cmd = self._get_python_cmd("agent_arcade.game_runner")
         wrapped = self._wrap_restart_command(
             runner_cmd,
             crash_label="Game runner",
@@ -201,8 +220,7 @@ class TmuxManager:
 
     def launch_agent_runner(self) -> None:
         """Launch agent runner in AI window."""
-        # Use Poetry to run the agent runner module in the virtual environment
-        runner_cmd = "export PATH=\"/Users/anthonygore/.local/bin:$PATH\" && poetry run python -m agent_arcade.agent_runner"
+        runner_cmd = self._get_python_cmd("agent_arcade.agent_runner")
         wrapped = self._wrap_agent_launcher(runner_cmd)
         self._respawn_pane(self.ai_window_index, wrapped)
 
@@ -223,6 +241,9 @@ class TmuxManager:
         Returns:
             Wrapped bash command string
         """
+        launcher_cmd = self._get_python_cmd("agent_arcade.agent_launcher")
+        update_status_cmd = self._get_python_cmd("agent_arcade.update_status")
+
         loop = (
             "trap \"\" INT; "  # Ignore Ctrl+C in wrapper
             "while true; do "
@@ -237,12 +258,10 @@ class TmuxManager:
             # If agent was selected, launch it
             "if [ -n \"$selected\" ]; then "
             "clear; "
-            "export PATH=\"/Users/anthonygore/.local/bin:$PATH\"; "
-            "poetry run python -m agent_arcade.agent_launcher \"$selected\"; "
+            f"{launcher_cmd} \"$selected\"; "
             # Agent exited - clear selection and update status bar
             f"tmux set-option -t {shlex.quote(self.session_name)} -u @selected-agent 2>/dev/null || true; "
-            "export PATH=\"/Users/anthonygore/.local/bin:$PATH\"; "
-            "poetry run python -m agent_arcade.update_status 2>/dev/null || true; "
+            f"{update_status_cmd} 2>/dev/null || true; "
             "fi; "
             # Loop back to menu (whether agent was selected or not)
             "done"
